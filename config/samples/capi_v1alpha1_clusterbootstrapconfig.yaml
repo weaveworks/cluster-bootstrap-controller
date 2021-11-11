@@ -1,0 +1,25 @@
+apiVersion: capi.weave.works/v1alpha1
+kind: ClusterBootstrapConfig
+metadata:
+  name: clusterbootstrapconfig-sample
+  namespace: default
+spec:
+  clusterSelector:
+    matchLabels:
+      weave.works/spike: upa
+  jobTemplate:
+      generateName: 'run-wego-{{ .ObjectMeta.Name }}'
+      spec:
+        containers:
+        - image: alpine:latest
+          name: cat-kubeconfig
+          volumeMounts:
+          - name: kubeconfig
+            mountPath: "/etc/wego"
+            readOnly: true
+          command: ["cat", "/etc/wego/value"]
+        restartPolicy: Never
+        volumes:
+        - name: kubeconfig
+          secret:
+            secretName: '{{ .ObjectMeta.Name }}-kubeconfig'

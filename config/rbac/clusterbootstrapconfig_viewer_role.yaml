@@ -1,0 +1,20 @@
+# permissions for end users to view clusterbootstrapconfigs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: clusterbootstrapconfig-viewer-role
+rules:
+- apiGroups:
+  - capi.weave.works
+  resources:
+  - clusterbootstrapconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - capi.weave.works
+  resources:
+  - clusterbootstrapconfigs/status
+  verbs:
+  - get

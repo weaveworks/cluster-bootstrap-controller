@@ -1,0 +1,19 @@
+domain: weave.works
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: cluster-bootstrap-controller
+repo: github.com/weaveworks-gitops-poc/cluster-bootstrap-controller
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: weave.works
+  group: capi
+  kind: ClusterBootstrapConfig
+  path: github.com/weaveworks-gitops-poc/cluster-bootstrap-controller/api/v1alpha1
+  version: v1alpha1
+version: "3"
