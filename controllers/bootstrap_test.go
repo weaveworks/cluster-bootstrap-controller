@@ -16,8 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	capiv1alpha1 "github.com/weaveworks-gitops-poc/cluster-bootstrap-controller/api/v1alpha1"
-	"github.com/weaveworks-gitops-poc/cluster-bootstrap-controller/test"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
+	"github.com/weaveworks/cluster-bootstrap-controller/test"
 )
 
 const (

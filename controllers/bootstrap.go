@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/go-logr/logr"
-	capiv1alpha1 "github.com/weaveworks-gitops-poc/cluster-bootstrap-controller/api/v1alpha1"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 )
 
 // bootstrapCluster applies the jobs from a ClusterBootstrapConfig to a cluster.

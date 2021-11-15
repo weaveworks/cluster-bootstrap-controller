@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	capiv1alpha1 "github.com/weaveworks-gitops-poc/cluster-bootstrap-controller/api/v1alpha1"
-	"github.com/weaveworks-gitops-poc/cluster-bootstrap-controller/controllers"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
+	"github.com/weaveworks/cluster-bootstrap-controller/controllers"
 	//+kubebuilder:scaffold:imports
 )
 

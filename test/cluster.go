@@ -5,7 +5,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ptrutils "k8s.io/utils/pointer"
 
-	capiv1alpha1 "github.com/weaveworks-gitops-poc/cluster-bootstrap-controller/api/v1alpha1"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 

@@ -7,8 +7,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 
-	capiv1alpha1 "github.com/weaveworks-gitops-poc/cluster-bootstrap-controller/api/v1alpha1"
-	"github.com/weaveworks-gitops-poc/cluster-bootstrap-controller/test"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
+	"github.com/weaveworks/cluster-bootstrap-controller/test"
 
 	"github.com/google/go-cmp/cmp"
 )
