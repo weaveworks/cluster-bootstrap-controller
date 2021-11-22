@@ -33,6 +33,7 @@ import (
 
 	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	"github.com/weaveworks/cluster-bootstrap-controller/controllers"
+	"k8s.io/klog/v2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -49,6 +50,8 @@ func init() {
 }
 
 func main() {
+	klog.InitFlags(nil)
+	flag.Set("v", "6")
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
