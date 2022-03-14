@@ -6889,8 +6889,11 @@ spec:
                 - generateName
                 - spec
                 type: object
+              waitForControlPlane:
+                type: string
             required:
             - clusterSelector
+            - jobTemplate
             type: object
           status:
             description: ClusterBootstrapConfigStatus defines the observed state of

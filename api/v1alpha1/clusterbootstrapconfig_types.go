@@ -17,9 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const defaultWaitDuration = time.Duration(0)
 
 const BootstrappedAnnotation = "capi.weave.works/bootstrapped"
 
@@ -39,8 +43,9 @@ type JobTemplate struct {
 
 // ClusterBootstrapConfigSpec defines the desired state of ClusterBootstrapConfig
 type ClusterBootstrapConfigSpec struct {
-	ClusterSelector metav1.LabelSelector `json:"clusterSelector"`
-	Template        JobTemplate          `json:"jobTemplate,omitempty"`
+	ClusterSelector          metav1.LabelSelector `json:"clusterSelector"`
+	Template                 JobTemplate          `json:"jobTemplate"`
+	ControlPlaneWaitDuration *metav1.Duration     `json:"waitForControlPlane,omitempty"`
 }
 
 // ClusterBootstrapConfigStatus defines the observed state of ClusterBootstrapConfig
@@ -57,6 +62,15 @@ type ClusterBootstrapConfig struct {
 
 	Spec   ClusterBootstrapConfigSpec   `json:"spec,omitempty"`
 	Status ClusterBootstrapConfigStatus `json:"status,omitempty"`
+}
+
+// ControlPlaneWait returns the configured ControlPlaneWaitDuration or a default
+// value if not configured.
+func (c ClusterBootstrapConfig) ControlPlaneWait() time.Duration {
+	if v := c.Spec.ControlPlaneWaitDuration; v != nil {
+		return v.Duration
+	}
+	return defaultWaitDuration
 }
 
 //+kubebuilder:object:root=true
