@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ptrutils "k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -181,12 +182,18 @@ func makeTestClusterBootstrapConfig(opts ...func(*capiv1alpha1.ClusterBootstrapC
 }
 
 func makeTestClient(t *testing.T, objs ...runtime.Object) client.Client {
+	_, client := makeTestClientAndScheme(t, objs...)
+	return client
+}
+
+func makeTestClientAndScheme(t *testing.T, objs ...runtime.Object) (*runtime.Scheme, client.Client) {
 	t.Helper()
 	s := runtime.NewScheme()
+	test.AssertNoError(t, clientgoscheme.AddToScheme(s))
 	test.AssertNoError(t, capiv1alpha1.AddToScheme(s))
 	test.AssertNoError(t, clusterv1.AddToScheme(s))
 	test.AssertNoError(t, batchv1.AddToScheme(s))
-	return fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build()
+	return s, fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build()
 }
 
 func makeTestVolume(name, secretName string) corev1.Volume {

@@ -12,8 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestIsMasterNodeReady(t *testing.T) {
-	masterLabels := map[string]string{
+func TestIsControlPlaneReady(t *testing.T) {
+	controlPlaneLabels := map[string]string{
 		"node-role.kubernetes.io/master":        "",
 		"node-role.kubernetes.io/control-plane": "",
 		"beta.kubernetes.io/arch":               "amd64",
@@ -30,15 +30,15 @@ func TestIsMasterNodeReady(t *testing.T) {
 		wantReady  bool
 	}{
 		{
-			name:   "master node not ready",
-			labels: masterLabels,
+			name:   "control plane not ready",
+			labels: controlPlaneLabels,
 			conditions: makeConditions(
 				corev1.NodeCondition{Type: corev1.NodeReady, Status: corev1.ConditionFalse, LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletNotReady", Message: "container runtime network not ready: NetworkReady=false reason:NetworkPluginNotReady message:Network plugin returns error: cni plugin not initialized"},
 			),
 		},
 		{
-			name:   "master node ready",
-			labels: masterLabels,
+			name:   "control plane ready",
+			labels: controlPlaneLabels,
 			conditions: makeConditions(
 				corev1.NodeCondition{Type: "NetworkUnavailable", Status: "False", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "CalicoIsUp", Message: "Calico is running on this node"},
 				corev1.NodeCondition{Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"},
@@ -46,7 +46,7 @@ func TestIsMasterNodeReady(t *testing.T) {
 			wantReady: true,
 		},
 		{
-			name:   "no master nodes",
+			name:   "no control plane",
 			labels: map[string]string{},
 			conditions: makeConditions(
 				corev1.NodeCondition{Type: corev1.NodeReady, Status: corev1.ConditionFalse, LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletNotReady", Message: "container runtime network not ready: NetworkReady=false reason:NetworkPluginNotReady message:Network plugin returns error: cni plugin not initialized"},

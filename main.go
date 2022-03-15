@@ -80,10 +80,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ClusterBootstrapConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err := controllers.NewClusterBootstrapConfigReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterBootstrapConfig")
 		os.Exit(1)
 	}

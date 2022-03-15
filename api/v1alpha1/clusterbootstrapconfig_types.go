@@ -43,9 +43,9 @@ type JobTemplate struct {
 
 // ClusterBootstrapConfigSpec defines the desired state of ClusterBootstrapConfig
 type ClusterBootstrapConfigSpec struct {
-	ClusterSelector          metav1.LabelSelector `json:"clusterSelector"`
-	Template                 JobTemplate          `json:"jobTemplate"`
-	ControlPlaneWaitDuration *metav1.Duration     `json:"waitForControlPlane,omitempty"`
+	ClusterSelector     metav1.LabelSelector `json:"clusterSelector"`
+	Template            JobTemplate          `json:"jobTemplate"`
+	RequireClusterReady bool                 `json:"requireClusterReady"`
 }
 
 // ClusterBootstrapConfigStatus defines the observed state of ClusterBootstrapConfig
@@ -62,15 +62,6 @@ type ClusterBootstrapConfig struct {
 
 	Spec   ClusterBootstrapConfigSpec   `json:"spec,omitempty"`
 	Status ClusterBootstrapConfigStatus `json:"status,omitempty"`
-}
-
-// ControlPlaneWait returns the configured ControlPlaneWaitDuration or a default
-// value if not configured.
-func (c ClusterBootstrapConfig) ControlPlaneWait() time.Duration {
-	if v := c.Spec.ControlPlaneWaitDuration; v != nil {
-		return v.Duration
-	}
-	return defaultWaitDuration
 }
 
 //+kubebuilder:object:root=true

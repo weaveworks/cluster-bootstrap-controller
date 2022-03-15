@@ -20,14 +20,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/clientcmd"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -38,14 +42,27 @@ import (
 // ClusterBootstrapConfigReconciler reconciles a ClusterBootstrapConfig object
 type ClusterBootstrapConfigReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme       *runtime.Scheme
+	configParser func(b []byte) (client.Client, error)
 }
+
+func NewClusterBootstrapConfigReconciler(c client.Client, s *runtime.Scheme) *ClusterBootstrapConfigReconciler {
+	return &ClusterBootstrapConfigReconciler{
+		Client:       c,
+		Scheme:       s,
+		configParser: bytesToKubeConfig,
+	}
+}
+
+// TODO: make this configurable on the Spec
+var requeueAfterTime = time.Minute * 2
 
 //+kubebuilder:rbac:groups=capi.weave.works,resources=clusterbootstrapconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=capi.weave.works,resources=clusterbootstrapconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=capi.weave.works,resources=clusterbootstrapconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -58,7 +75,6 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 	if err := r.Client.Get(ctx, req.NamespacedName, &clusterBootstrapConfig); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
 	logger.Info("cluster bootstrap config loaded", "name", clusterBootstrapConfig.ObjectMeta.Name)
 
 	clusters, err := r.getClustersBySelector(ctx, req.Namespace, clusterBootstrapConfig.Spec.ClusterSelector)
@@ -68,6 +84,22 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 	logger.Info("identified clusters for reconciliation", "clusterCount", len(clusters))
 
 	for _, c := range clusters {
+		if clusterBootstrapConfig.Spec.RequireClusterReady {
+			clusterName := types.NamespacedName{Name: c.GetName(), Namespace: c.GetNamespace()}
+			clusterClient, err := r.clientForCluster(ctx, clusterName)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to create client for cluster %s: %w", clusterName, err)
+			}
+
+			ready, err := IsControlPlaneReady(ctx, clusterClient)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to check readiness of cluster %s: %w", clusterName, err)
+			}
+			if !ready {
+				logger.Info("waiting for control plane to be ready", "cluster", clusterName)
+				return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
+			}
+		}
 		if err := bootstrapClusterWithConfig(ctx, logger, r.Client, c, &clusterBootstrapConfig); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to bootstrap cluster config: %w", err)
 		}
@@ -169,4 +201,60 @@ func (r *ClusterBootstrapConfigReconciler) clusterToClusterBootstrapConfig(o cli
 		result = append(result, ctrl.Request{NamespacedName: name})
 	}
 	return result
+}
+
+func (r *ClusterBootstrapConfigReconciler) clientForCluster(ctx context.Context, name types.NamespacedName) (client.Client, error) {
+	kubeConfigBytes, err := r.getKubeConfig(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := r.configParser(kubeConfigBytes)
+	if err != nil {
+		return nil, fmt.Errorf("getting client for cluster %s: %w", name, err)
+	}
+	return client, nil
+}
+
+func (r *ClusterBootstrapConfigReconciler) getKubeConfig(ctx context.Context, cluster types.NamespacedName) ([]byte, error) {
+	secretName := types.NamespacedName{
+		Namespace: cluster.Namespace,
+		Name:      cluster.Name + "-kubeconfig",
+	}
+
+	var secret corev1.Secret
+	if err := r.Client.Get(ctx, secretName, &secret); err != nil {
+		return nil, fmt.Errorf("unable to read KubeConfig secret %q error: %w", secretName, err)
+	}
+
+	var kubeConfig []byte
+	for k := range secret.Data {
+		if k == "value" || k == "value.yaml" {
+			kubeConfig = secret.Data[k]
+			break
+		}
+	}
+
+	if len(kubeConfig) == 0 {
+		return nil, fmt.Errorf("KubeConfig secret %q doesn't contain a 'value' key ", secretName)
+	}
+
+	return kubeConfig, nil
+}
+
+func bytesToKubeConfig(b []byte) (client.Client, error) {
+	restConfig, err := clientcmd.RESTConfigFromKubeConfig(b)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse KubeConfig from secret: %w", err)
+	}
+	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create RESTMapper from config: %w", err)
+	}
+
+	client, err := client.New(restConfig, client.Options{Mapper: restMapper})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a client from config: %w", err)
+	}
+	return client, nil
 }
