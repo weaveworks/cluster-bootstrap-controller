@@ -58,7 +58,35 @@ func TestReconcile_when_cluster_not_ready(t *testing.T) {
 	if l := len(jobs.Items); l != 0 {
 		t.Fatalf("found %d jobs, want %d", l, 0)
 	}
+}
 
+func TestReconcile_when_cluster_secret_not_available(t *testing.T) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
+		c.Spec.RequireClusterReady = true
+	})
+	cl := makeTestCluster(func(c *clusterv1.Cluster) {
+		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
+		c.Status.Phase = string(clusterv1.ClusterPhaseProvisioned)
+	})
+	reconciler := makeTestReconciler(t, bc, cl)
+
+	// This cheats by using the test client as the remote client to simplify
+	// getting the value from the remote client.
+	reconciler.configParser = func(b []byte) (client.Client, error) {
+		return reconciler.Client, nil
+	}
+
+	result, err := reconciler.Reconcile(context.TODO(), ctrl.Request{NamespacedName: types.NamespacedName{
+		Name:      bc.GetName(),
+		Namespace: bc.GetNamespace(),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result.RequeueAfter != requeueAfterTime {
+		t.Fatalf("RequeueAfter got %v, want %v", result.RequeueAfter, requeueAfterTime)
+	}
 }
 
 func TestReconcile_when_cluster_ready(t *testing.T) {

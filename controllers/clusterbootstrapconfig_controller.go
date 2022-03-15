@@ -23,6 +23,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,7 +56,7 @@ func NewClusterBootstrapConfigReconciler(c client.Client, s *runtime.Scheme) *Cl
 }
 
 // TODO: make this configurable on the Spec
-var requeueAfterTime = time.Minute * 2
+var requeueAfterTime = time.Second * 32
 
 //+kubebuilder:rbac:groups=capi.weave.works,resources=clusterbootstrapconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=capi.weave.works,resources=clusterbootstrapconfigs/status,verbs=get;update;patch
@@ -88,6 +89,11 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 			clusterName := types.NamespacedName{Name: c.GetName(), Namespace: c.GetNamespace()}
 			clusterClient, err := r.clientForCluster(ctx, clusterName)
 			if err != nil {
+				if apierrors.IsNotFound(err) {
+					logger.Info("waiting for cluster access secret to be available")
+					return ctrl.Result{RequeueAfter: requeueAfterTime}, nil
+				}
+
 				return ctrl.Result{}, fmt.Errorf("failed to create client for cluster %s: %w", clusterName, err)
 			}
 
@@ -97,6 +103,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 			}
 			if !ready {
 				logger.Info("waiting for control plane to be ready", "cluster", clusterName)
+
 				return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
 			}
 		}
