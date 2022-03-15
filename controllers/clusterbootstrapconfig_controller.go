@@ -104,7 +104,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 			if !ready {
 				logger.Info("waiting for control plane to be ready", "cluster", clusterName)
 
-				return ctrl.Result{RequeueAfter: time.Minute * 2}, nil
+				return ctrl.Result{RequeueAfter: requeueAfterTime}, nil
 			}
 		}
 		if err := bootstrapClusterWithConfig(ctx, logger, r.Client, c, &clusterBootstrapConfig); err != nil {
