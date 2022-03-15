@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,16 +46,15 @@ type ClusterBootstrapConfigReconciler struct {
 	configParser func(b []byte) (client.Client, error)
 }
 
+// NewClusterBootstrapConfigReconcielr creates and returns a configured
+// reconciler ready for use.
 func NewClusterBootstrapConfigReconciler(c client.Client, s *runtime.Scheme) *ClusterBootstrapConfigReconciler {
 	return &ClusterBootstrapConfigReconciler{
 		Client:       c,
 		Scheme:       s,
-		configParser: bytesToKubeConfig,
+		configParser: kubeConfigBytesToClient,
 	}
 }
-
-// TODO: make this configurable on the Spec
-var requeueAfterTime = time.Second * 32
 
 //+kubebuilder:rbac:groups=capi.weave.works,resources=clusterbootstrapconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=capi.weave.works,resources=clusterbootstrapconfigs/status,verbs=get;update;patch
@@ -91,7 +89,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					logger.Info("waiting for cluster access secret to be available")
-					return ctrl.Result{RequeueAfter: requeueAfterTime}, nil
+					return ctrl.Result{RequeueAfter: clusterBootstrapConfig.ClusterReadinessRequeue()}, nil
 				}
 
 				return ctrl.Result{}, fmt.Errorf("failed to create client for cluster %s: %w", clusterName, err)
@@ -104,7 +102,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 			if !ready {
 				logger.Info("waiting for control plane to be ready", "cluster", clusterName)
 
-				return ctrl.Result{RequeueAfter: requeueAfterTime}, nil
+				return ctrl.Result{RequeueAfter: clusterBootstrapConfig.ClusterReadinessRequeue()}, nil
 			}
 		}
 		if err := bootstrapClusterWithConfig(ctx, logger, r.Client, c, &clusterBootstrapConfig); err != nil {
@@ -249,7 +247,7 @@ func (r *ClusterBootstrapConfigReconciler) getKubeConfig(ctx context.Context, cl
 	return kubeConfig, nil
 }
 
-func bytesToKubeConfig(b []byte) (client.Client, error) {
+func kubeConfigBytesToClient(b []byte) (client.Client, error) {
 	restConfig, err := clientcmd.RESTConfigFromKubeConfig(b)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse KubeConfig from secret: %w", err)

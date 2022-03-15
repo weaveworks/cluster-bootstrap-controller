@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const defaultWaitDuration = time.Duration(0)
+const defaultWaitDuration = time.Second * 60
 
 const BootstrappedAnnotation = "capi.weave.works/bootstrapped"
 
@@ -43,9 +43,17 @@ type JobTemplate struct {
 
 // ClusterBootstrapConfigSpec defines the desired state of ClusterBootstrapConfig
 type ClusterBootstrapConfigSpec struct {
-	ClusterSelector     metav1.LabelSelector `json:"clusterSelector"`
-	Template            JobTemplate          `json:"jobTemplate"`
-	RequireClusterReady bool                 `json:"requireClusterReady"`
+	ClusterSelector metav1.LabelSelector `json:"clusterSelector"`
+	Template        JobTemplate          `json:"jobTemplate"`
+
+	// Wait for the remote cluster to be "ready" before creating the jobs.
+	// Defaults to false.
+	//+kubebuilder:default:false
+	RequireClusterReady bool `json:"requireClusterReady"`
+	// When checking for readiness, this is the time to wait before
+	// checking again.
+	//+kubebuilder:default:60s
+	ClusterReadinessBackoff *metav1.Duration `json:"clusterReadinessBackoff,omitempty"`
 }
 
 // ClusterBootstrapConfigStatus defines the observed state of ClusterBootstrapConfig
@@ -62,6 +70,15 @@ type ClusterBootstrapConfig struct {
 
 	Spec   ClusterBootstrapConfigSpec   `json:"spec,omitempty"`
 	Status ClusterBootstrapConfigStatus `json:"status,omitempty"`
+}
+
+// ClusterReadinessRequeue returns the configured ClusterReadinessBackoff or a default
+// value if not configured.
+func (c ClusterBootstrapConfig) ClusterReadinessRequeue() time.Duration {
+	if v := c.Spec.ClusterReadinessBackoff; v != nil {
+		return v.Duration
+	}
+	return defaultWaitDuration
 }
 
 //+kubebuilder:object:root=true
