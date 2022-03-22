@@ -25,7 +25,6 @@ const (
 	testConfigName  = "test-config"
 	testClusterName = "test-cluster"
 	testNamespace   = "testing"
-	testClusterUID  = "ecf40f3f-9341-4b1c-bc58-69ff2602d31b"
 )
 
 func Test_bootstrapClusterWithConfig(t *testing.T) {
@@ -80,7 +79,6 @@ func Test_bootstrapClusterWithConfig_sets_owner(t *testing.T) {
 			APIVersion: "cluster.x-k8s.io/v1beta1",
 			Kind:       "Cluster",
 			Name:       testClusterName,
-			UID:        testClusterUID,
 		},
 	}
 	if diff := cmp.Diff(want, jobList.Items[0].ObjectMeta.OwnerReferences); diff != "" {
@@ -127,7 +125,6 @@ func makeTestCluster(opts ...func(*clusterv1.Cluster)) *clusterv1.Cluster {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testClusterName,
 			Namespace: testNamespace,
-			UID:       testClusterUID,
 		},
 		Spec: clusterv1.ClusterSpec{},
 	}
