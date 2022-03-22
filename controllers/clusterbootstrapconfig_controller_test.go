@@ -101,7 +101,8 @@ func TestReconcile_when_cluster_ready(t *testing.T) {
 	})
 	readyNode := makeNode(map[string]string{
 		"node-role.kubernetes.io/control-plane": "",
-	}, corev1.NodeCondition{Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
+	}, corev1.NodeCondition{
+		Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
 
 	cl := makeTestCluster(func(c *clusterv1.Cluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
@@ -209,7 +210,9 @@ func TestReconcile_when_cluster_ready_and_old_label(t *testing.T) {
 	})
 	readyNode := makeNode(map[string]string{
 		"node-role.kubernetes.io/master": "",
-	}, corev1.NodeCondition{Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
+	}, corev1.NodeCondition{Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(),
+		LastTransitionTime: metav1.Now(), Reason: "KubeletReady",
+		Message: "kubelet is posting ready status"})
 
 	cl := makeTestCluster(func(c *clusterv1.Cluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels

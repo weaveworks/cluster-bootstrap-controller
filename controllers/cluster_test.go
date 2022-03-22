@@ -7,7 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -74,7 +73,6 @@ func makeNode(labels map[string]string, conds ...corev1.NodeCondition) *corev1.N
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test-control-plane",
 			Labels: labels,
-			UID:    types.UID("f046e20e-df55-40d0-ab3a-76ff56617575"),
 		},
 		Spec: corev1.NodeSpec{},
 		Status: corev1.NodeStatus{
