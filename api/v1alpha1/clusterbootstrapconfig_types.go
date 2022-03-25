@@ -49,10 +49,12 @@ type ClusterBootstrapConfigSpec struct {
 	// Wait for the remote cluster to be "ready" before creating the jobs.
 	// Defaults to false.
 	//+kubebuilder:default:false
+	//+optional
 	RequireClusterReady bool `json:"requireClusterReady"`
 	// When checking for readiness, this is the time to wait before
 	// checking again.
 	//+kubebuilder:default:60s
+	//+optional
 	ClusterReadinessBackoff *metav1.Duration `json:"clusterReadinessBackoff,omitempty"`
 }
 

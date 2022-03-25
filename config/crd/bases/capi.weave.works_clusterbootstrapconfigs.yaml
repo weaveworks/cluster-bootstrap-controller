@@ -6900,7 +6900,6 @@ spec:
             required:
             - clusterSelector
             - jobTemplate
-            - requireClusterReady
             type: object
           status:
             description: ClusterBootstrapConfigStatus defines the observed state of
