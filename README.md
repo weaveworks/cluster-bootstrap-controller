@@ -4,8 +4,7 @@ This is a controller that tracks [CAPI](https://github.com/kubernetes-sigs/clust
 
 It provides a CR for a `ClusterBootstrapConfig` which provides a [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) template.
 
-When a CAPI Cluster is "provisioned" a Job is created from the template, the
-template can access multiple fields.
+When a CAPI Cluster is "provisioned" a Job is created from the template, the template can access multiple fields.
 
 ```yaml
 apiVersion: capi.weave.works/v1alpha1
@@ -35,10 +34,7 @@ spec:
           secretName: '{{ .ObjectMeta.Name }}-kubeconfig'
 ```
 
-This is using Go [templating](https://pkg.go.dev/text/template) and the
-`Cluster` object is provided as the context, this means that expressions like
-`{{ .ObjectMeta.Name }}` will get the _name_ of the Cluster that has
-transitioned to "provisioned".
+This is using Go [templating](https://pkg.go.dev/text/template) and the `Cluster` object is provided as the context, this means that expressions like `{{ .ObjectMeta.Name }}` will get the _name_ of the Cluster that has transitioned to "provisioned".
 
 ## Annotations
 
@@ -56,3 +52,16 @@ e.g.
           secretName: '{{ annotation "example.com/secret-name }}'
 
 ```
+
+## Installation
+
+You will need to have CAPI installed first, see the [CAPI Quick Start](https://cluster-api.sigs.k8s.io/user/quick-start.html).
+
+Release files are available https://github.com/weaveworks/cluster-bootstrap-controller/releases
+
+You can install these e.g.
+
+```shell
+$ kubectl apply -f https://github.com/weaveworks/cluster-bootstrap-controller/releases/download/v0.0.5/cluster-bootstrap-controller-v0.0.5.yaml
+```
+
