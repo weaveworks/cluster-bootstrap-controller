@@ -6,7 +6,7 @@ import (
 	ptrutils "k8s.io/utils/pointer"
 
 	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 )
 
 // MatchLabels is an option func for MakeClusterBootstrapConfig to set the labels on
@@ -72,20 +72,20 @@ func makeTestVolume(name, secretName string) corev1.Volume {
 }
 
 // Labels a cluster option that sets the labels on the cluster.
-func Labels(l map[string]string) func(*clusterv1.Cluster) {
-	return func(c *clusterv1.Cluster) {
+func Labels(l map[string]string) func(*gitopsv1alpha1.GitopsCluster) {
+	return func(c *gitopsv1alpha1.GitopsCluster) {
 		c.SetLabels(l)
 	}
 }
 
 // MakeCluster allocates and returns a new CAPI Cluster value.
-func MakeCluster(name, namespace string, opts ...func(*clusterv1.Cluster)) *clusterv1.Cluster {
-	c := &clusterv1.Cluster{
+func MakeCluster(name, namespace string, opts ...func(*gitopsv1alpha1.GitopsCluster)) *gitopsv1alpha1.GitopsCluster {
+	c := &gitopsv1alpha1.GitopsCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: clusterv1.ClusterSpec{},
+		Spec: gitopsv1alpha1.GitopsClusterSpec{},
 	}
 	for _, o := range opts {
 		o(c)

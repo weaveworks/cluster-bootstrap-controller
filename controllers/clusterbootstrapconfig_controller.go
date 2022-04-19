@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -131,13 +131,13 @@ func (r *ClusterBootstrapConfigReconciler) SetupWithManager(mgr ctrl.Manager) er
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&capiv1alpha1.ClusterBootstrapConfig{}).
 		Watches(
-			&source.Kind{Type: &clusterv1.Cluster{}},
+			&source.Kind{Type: &gitopsv1alpha1.GitopsCluster{}},
 			handler.EnqueueRequestsFromMapFunc(r.clusterToClusterBootstrapConfig),
 		).
 		Complete(r)
 }
 
-func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, ls metav1.LabelSelector) ([]*clusterv1.Cluster, error) {
+func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, ls metav1.LabelSelector) ([]*gitopsv1alpha1.GitopsCluster, error) {
 	logger := ctrl.LoggerFrom(ctx)
 	selector, err := metav1.LabelSelectorAsSelector(&ls)
 	if err != nil {
@@ -148,17 +148,24 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 		logger.Info("empty ClusterBootstrapConfig selector: no clusters are selected")
 		return nil, nil
 	}
-	clusterList := &clusterv1.ClusterList{}
+	clusterList := &gitopsv1alpha1.GitopsClusterList{}
 	if err := r.Client.List(ctx, clusterList, client.InNamespace(ns), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return nil, fmt.Errorf("failed to list clusters: %w", err)
 	}
 
 	logger.Info("identified clusters with selector", "selector", selector, "count", len(clusterList.Items))
-	clusters := []*clusterv1.Cluster{}
+	clusters := []*gitopsv1alpha1.GitopsCluster{}
 	for i := range clusterList.Items {
 		c := &clusterList.Items[i]
-		if clusterv1.ClusterPhase(c.Status.Phase) != clusterv1.ClusterPhaseProvisioned {
-			logger.Info("cluster discarded - not provisioned", "phase", c.Status.Phase)
+
+		clusterFound := false
+		for _, condtion := range c.Status.Conditions {
+			if condtion.Status == "Ready" {
+				clusterFound = true
+			}
+		}
+		if !clusterFound {
+			logger.Info("cluster discarded - not provisioned", "phase", c.Status)
 			continue
 		}
 		if metav1.HasAnnotation(c.ObjectMeta, capiv1alpha1.BootstrappedAnnotation) {
@@ -175,7 +182,7 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 // ClusterBootstrapConfig.
 func (r *ClusterBootstrapConfigReconciler) clusterToClusterBootstrapConfig(o client.Object) []ctrl.Request {
 	result := []ctrl.Request{}
-	cluster, ok := o.(*clusterv1.Cluster)
+	cluster, ok := o.(*gitopsv1alpha1.GitopsCluster)
 	if !ok {
 		panic(fmt.Sprintf("Expected a Cluster but got a %T", o))
 	}

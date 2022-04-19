@@ -7,13 +7,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ptrutils "k8s.io/utils/pointer"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -76,8 +76,8 @@ func Test_bootstrapClusterWithConfig_sets_owner(t *testing.T) {
 
 	want := []metav1.OwnerReference{
 		{
-			APIVersion: "cluster.x-k8s.io/v1beta1",
-			Kind:       "Cluster",
+			APIVersion: "gitops.weave.works/v1alpha1",
+			Kind:       "GitopsCluster",
 			Name:       testClusterName,
 		},
 	}
@@ -90,7 +90,7 @@ func Test_bootstrapClusterWithConfig_fail_to_create_job(t *testing.T) {
 	// This is a hacky test for making Create fail because of an unregistered
 	// type.
 	s := runtime.NewScheme()
-	test.AssertNoError(t, clusterv1.AddToScheme(s))
+	test.AssertNoError(t, gitopsv1alpha1.AddToScheme(s))
 	tc := fake.NewClientBuilder().WithScheme(s).Build()
 	bc := makeTestClusterBootstrapConfig()
 	cl := makeTestCluster()
@@ -120,13 +120,13 @@ func makeTestPodSpecWithVolumes(volumes ...corev1.Volume) corev1.PodSpec {
 	}
 }
 
-func makeTestCluster(opts ...func(*clusterv1.Cluster)) *clusterv1.Cluster {
-	c := &clusterv1.Cluster{
+func makeTestCluster(opts ...func(*gitopsv1alpha1.GitopsCluster)) *gitopsv1alpha1.GitopsCluster {
+	c := &gitopsv1alpha1.GitopsCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testClusterName,
 			Namespace: testNamespace,
 		},
-		Spec: clusterv1.ClusterSpec{},
+		Spec: gitopsv1alpha1.GitopsClusterSpec{},
 	}
 	for _, o := range opts {
 		o(c)
@@ -188,8 +188,8 @@ func makeTestClientAndScheme(t *testing.T, objs ...runtime.Object) (*runtime.Sch
 	s := runtime.NewScheme()
 	test.AssertNoError(t, clientgoscheme.AddToScheme(s))
 	test.AssertNoError(t, capiv1alpha1.AddToScheme(s))
-	test.AssertNoError(t, clusterv1.AddToScheme(s))
 	test.AssertNoError(t, batchv1.AddToScheme(s))
+	test.AssertNoError(t, gitopsv1alpha1.AddToScheme(s))
 	return s, fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build()
 }
 
