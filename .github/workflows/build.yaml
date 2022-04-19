@@ -3,7 +3,10 @@ name: "Build and push docker container"
 on:
   pull_request:
   workflow_dispatch:
-    
+
+env:
+  GOPRIVATE: github.com/weaveworks/cluster-controller
+
 jobs:
   cluster-bootstrap-controller:
     runs-on: ubuntu-latest
