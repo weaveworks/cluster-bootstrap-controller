@@ -1,6 +1,10 @@
 # Build the manager binary
 FROM golang:1.17 as builder
 
+ARG GITHUB_BUILD_USERNAME
+ARG GITHUB_BUILD_TOKEN
+RUN git config --global url."https://${GITHUB_BUILD_USERNAME}:${GITHUB_BUILD_TOKEN}@github.com".insteadOf "https://github.com"
+
 WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod

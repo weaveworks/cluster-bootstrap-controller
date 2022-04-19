@@ -100,7 +100,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build \
+	--build-arg=GITHUB_BUILD_TOKEN=$(GITHUB_BUILD_TOKEN) \
+	--build-arg=GITHUB_BUILD_USERNAME=$(GITHUB_BUILD_USERNAME) \
+	-t ${IMG} . \
+	
 
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
