@@ -155,7 +155,7 @@ func TestReconcile_when_cluster_no_matching_labels(t *testing.T) {
 		c.ObjectMeta.Labels = map[string]string{
 			"will-not-match": "",
 		}
-		condtion := metav1.Condition{
+		condition := metav1.Condition{
 			Status: "Ready",
 		}
 		c.Status.Conditions = append(c.Status.Conditions, condtion)
