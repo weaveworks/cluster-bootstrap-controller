@@ -159,7 +159,7 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 		c := &clusterList.Items[i]
 
 		clusterFound := false
-		for _, condtion := range c.Status.Conditions {
+		for _, condition := range c.Status.Conditions {
 			if condtion.Status == "Ready" {
 				clusterFound = true
 			}
