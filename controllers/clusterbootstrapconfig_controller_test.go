@@ -158,7 +158,7 @@ func TestReconcile_when_cluster_no_matching_labels(t *testing.T) {
 		condition := metav1.Condition{
 			Status: "Ready",
 		}
-		c.Status.Conditions = append(c.Status.Conditions, condtion)
+		c.Status.Conditions = append(c.Status.Conditions, condition)
 	})
 	// This cheats by using the local client as the remote client to simplify
 	// getting the value from the remote client.
