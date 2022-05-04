@@ -160,7 +160,7 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 
 		clusterFound := false
 		for _, condition := range c.Status.Conditions {
-			if condition.Status == "Ready" {
+			if condition.Type == "Ready" && condition.Status == metav1.ConditionTrue {
 				clusterFound = true
 			}
 		}

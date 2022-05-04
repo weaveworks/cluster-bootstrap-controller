@@ -37,10 +37,7 @@ func TestReconcile_when_cluster_not_ready(t *testing.T) {
 
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
-		condtion := metav1.Condition{
-			Status: "Ready",
-		}
-		c.Status.Conditions = append(c.Status.Conditions, condtion)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	secret := makeTestSecret(types.NamespacedName{
 		Name:      cl.GetName() + "-kubeconfig",
@@ -74,10 +71,7 @@ func TestReconcile_when_cluster_secret_not_available(t *testing.T) {
 	})
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
-		condtion := metav1.Condition{
-			Status: "Ready",
-		}
-		c.Status.Conditions = append(c.Status.Conditions, condtion)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	reconciler := makeTestReconciler(t, bc, cl)
 
@@ -112,10 +106,7 @@ func TestReconcile_when_cluster_ready(t *testing.T) {
 
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
-		condtion := metav1.Condition{
-			Status: "Ready",
-		}
-		c.Status.Conditions = append(c.Status.Conditions, condtion)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	secret := makeTestSecret(types.NamespacedName{
 		Name:      cl.GetName() + "-kubeconfig",
@@ -155,10 +146,7 @@ func TestReconcile_when_cluster_no_matching_labels(t *testing.T) {
 		c.ObjectMeta.Labels = map[string]string{
 			"will-not-match": "",
 		}
-		condition := metav1.Condition{
-			Status: "Ready",
-		}
-		c.Status.Conditions = append(c.Status.Conditions, condition)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	// This cheats by using the local client as the remote client to simplify
 	// getting the value from the remote client.
@@ -194,10 +182,7 @@ func TestReconcile_when_empty_label_selector(t *testing.T) {
 		c.ObjectMeta.Labels = map[string]string{
 			"will-not-match": "",
 		}
-		condtion := metav1.Condition{
-			Status: "Ready",
-		}
-		c.Status.Conditions = append(c.Status.Conditions, condtion)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	// This cheats by using the local client as the remote client to simplify
 	// getting the value from the remote client.
@@ -231,10 +216,7 @@ func TestReconcile_when_cluster_ready_and_old_label(t *testing.T) {
 
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
-		condtion := metav1.Condition{
-			Status: "Ready",
-		}
-		c.Status.Conditions = append(c.Status.Conditions, condtion)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	secret := makeTestSecret(types.NamespacedName{
 		Name:      cl.GetName() + "-kubeconfig",
@@ -328,6 +310,13 @@ func Test_kubeConfigBytesToClient_with_invalidkubeconfig(t *testing.T) {
 	_, err := kubeConfigBytesToClient([]byte("testing"))
 	if err == nil {
 		t.Fatal("expected to get an error parsing an invalid kubeconfig secret")
+	}
+}
+
+func makeReadyCondition() metav1.Condition {
+	return metav1.Condition{
+		Type:   "Ready",
+		Status: metav1.ConditionTrue,
 	}
 }
 
