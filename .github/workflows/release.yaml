@@ -2,6 +2,9 @@ on:
   push:
     tags: [v*.*.*]
 
+env:
+  GOPRIVATE: github.com/weaveworks/cluster-controller
+
 name: release
 jobs:
   build:
@@ -17,6 +20,9 @@ jobs:
         fetch-depth: 0
         ref: ${{ github.event.pull_request.head.sha }}
     - name: Build docker image
+      env:
+        GITHUB_BUILD_USERNAME: ${{ secrets.BUILD_BOT_USER }}
+        GITHUB_BUILD_TOKEN: ${{ secrets.BUILD_BOT_PERSONAL_ACCESS_TOKEN }}
       run: |
         make docker-build
     - name: Login to Docker Hub
