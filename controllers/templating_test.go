@@ -3,9 +3,9 @@ package controllers
 import (
 	"testing"
 
+	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 
 	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	"github.com/weaveworks/cluster-bootstrap-controller/test"
@@ -15,7 +15,7 @@ import (
 
 func Test_renderTemplates(t *testing.T) {
 	testCluster := makeTestCluster(
-		func(cl *clusterv1.Cluster) {
+		func(cl *gitopsv1alpha1.GitopsCluster) {
 			cl.ObjectMeta.Annotations = map[string]string{"gitops.solutions/my-test": "just-a-value"}
 			cl.ObjectMeta.Labels = map[string]string{"gitops.solutions/my-label": "label-value"}
 		},
@@ -47,7 +47,7 @@ func Test_renderTemplates(t *testing.T) {
 
 func Test_renderTemplates_with_errors(t *testing.T) {
 	testCluster := makeTestCluster(
-		func(cl *clusterv1.Cluster) {
+		func(cl *gitopsv1alpha1.GitopsCluster) {
 			cl.ObjectMeta.Annotations = map[string]string{"gitops.solutions/my-test": "!!int"}
 		},
 	)

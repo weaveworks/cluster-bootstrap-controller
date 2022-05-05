@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -16,7 +16,7 @@ import (
 )
 
 // bootstrapCluster applies the jobs from a ClusterBootstrapConfig to a cluster.
-func bootstrapClusterWithConfig(ctx context.Context, logger logr.Logger, c client.Client, cl *clusterv1.Cluster, bc *capiv1alpha1.ClusterBootstrapConfig) error {
+func bootstrapClusterWithConfig(ctx context.Context, logger logr.Logger, c client.Client, cl *gitopsv1alpha1.GitopsCluster, bc *capiv1alpha1.ClusterBootstrapConfig) error {
 	job, err := renderTemplates(cl, jobFromTemplate(cl, bc.Spec.Template))
 	if err != nil {
 		return fmt.Errorf("failed to render job from template: %w", err)
@@ -31,7 +31,7 @@ func bootstrapClusterWithConfig(ctx context.Context, logger logr.Logger, c clien
 	return nil
 }
 
-func jobFromTemplate(cl *clusterv1.Cluster, jt capiv1alpha1.JobTemplate) *batchv1.Job {
+func jobFromTemplate(cl *gitopsv1alpha1.GitopsCluster, jt capiv1alpha1.JobTemplate) *batchv1.Job {
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: jt.GenerateName,

@@ -15,12 +15,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	"github.com/weaveworks/cluster-bootstrap-controller/test"
+	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 )
 
 const testWaitDuration = time.Second * 55
@@ -35,9 +35,9 @@ func TestReconcile_when_cluster_not_ready(t *testing.T) {
 		"node-role.kubernetes.io/control-plane": "",
 	}, corev1.NodeCondition{Type: "Ready", Status: "False", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
 
-	cl := makeTestCluster(func(c *clusterv1.Cluster) {
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
-		c.Status.Phase = string(clusterv1.ClusterPhaseProvisioned)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	secret := makeTestSecret(types.NamespacedName{
 		Name:      cl.GetName() + "-kubeconfig",
@@ -69,9 +69,9 @@ func TestReconcile_when_cluster_secret_not_available(t *testing.T) {
 	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 	})
-	cl := makeTestCluster(func(c *clusterv1.Cluster) {
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
-		c.Status.Phase = string(clusterv1.ClusterPhaseProvisioned)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	reconciler := makeTestReconciler(t, bc, cl)
 
@@ -104,9 +104,9 @@ func TestReconcile_when_cluster_ready(t *testing.T) {
 	}, corev1.NodeCondition{
 		Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
 
-	cl := makeTestCluster(func(c *clusterv1.Cluster) {
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
-		c.Status.Phase = string(clusterv1.ClusterPhaseProvisioned)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	secret := makeTestSecret(types.NamespacedName{
 		Name:      cl.GetName() + "-kubeconfig",
@@ -142,11 +142,11 @@ func TestReconcile_when_cluster_no_matching_labels(t *testing.T) {
 	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 	})
-	cl := makeTestCluster(func(c *clusterv1.Cluster) {
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = map[string]string{
 			"will-not-match": "",
 		}
-		c.Status.Phase = string(clusterv1.ClusterPhaseProvisioned)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	// This cheats by using the local client as the remote client to simplify
 	// getting the value from the remote client.
@@ -178,11 +178,11 @@ func TestReconcile_when_empty_label_selector(t *testing.T) {
 		}
 
 	})
-	cl := makeTestCluster(func(c *clusterv1.Cluster) {
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = map[string]string{
 			"will-not-match": "",
 		}
-		c.Status.Phase = string(clusterv1.ClusterPhaseProvisioned)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	// This cheats by using the local client as the remote client to simplify
 	// getting the value from the remote client.
@@ -214,9 +214,9 @@ func TestReconcile_when_cluster_ready_and_old_label(t *testing.T) {
 		LastTransitionTime: metav1.Now(), Reason: "KubeletReady",
 		Message: "kubelet is posting ready status"})
 
-	cl := makeTestCluster(func(c *clusterv1.Cluster) {
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
-		c.Status.Phase = string(clusterv1.ClusterPhaseProvisioned)
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 	secret := makeTestSecret(types.NamespacedName{
 		Name:      cl.GetName() + "-kubeconfig",
@@ -310,6 +310,13 @@ func Test_kubeConfigBytesToClient_with_invalidkubeconfig(t *testing.T) {
 	_, err := kubeConfigBytesToClient([]byte("testing"))
 	if err == nil {
 		t.Fatal("expected to get an error parsing an invalid kubeconfig secret")
+	}
+}
+
+func makeReadyCondition() metav1.Condition {
+	return metav1.Condition{
+		Type:   "Ready",
+		Status: metav1.ConditionTrue,
 	}
 }
 

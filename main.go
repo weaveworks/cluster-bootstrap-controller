@@ -33,7 +33,7 @@ import (
 
 	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	"github.com/weaveworks/cluster-bootstrap-controller/controllers"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -46,7 +46,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(capiv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(gitopsv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
