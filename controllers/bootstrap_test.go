@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
+	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
 	"github.com/weaveworks/cluster-bootstrap-controller/test"
 )
 
@@ -134,19 +134,19 @@ func makeTestCluster(opts ...func(*gitopsv1alpha1.GitopsCluster)) *gitopsv1alpha
 	return c
 }
 
-func makeTestClusterBootstrapConfig(opts ...func(*capiv1alpha1.ClusterBootstrapConfig)) *capiv1alpha1.ClusterBootstrapConfig {
-	bc := &capiv1alpha1.ClusterBootstrapConfig{
+func makeTestClusterBootstrapConfig(opts ...func(*capiv1alpha2.ClusterBootstrapConfig)) *capiv1alpha2.ClusterBootstrapConfig {
+	bc := &capiv1alpha2.ClusterBootstrapConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testConfigName,
 			Namespace: testNamespace,
 		},
-		Spec: capiv1alpha1.ClusterBootstrapConfigSpec{
+		Spec: capiv1alpha2.ClusterBootstrapConfigSpec{
 			ClusterSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"testing": "label",
 				},
 			},
-			Template: capiv1alpha1.JobTemplate{
+			Template: capiv1alpha2.JobTemplate{
 				GenerateName: "setup-something-",
 				BackoffLimit: ptrutils.Int32Ptr(13),
 				Spec: corev1.PodSpec{
@@ -187,7 +187,7 @@ func makeTestClientAndScheme(t *testing.T, objs ...runtime.Object) (*runtime.Sch
 	t.Helper()
 	s := runtime.NewScheme()
 	test.AssertNoError(t, clientgoscheme.AddToScheme(s))
-	test.AssertNoError(t, capiv1alpha1.AddToScheme(s))
+	test.AssertNoError(t, capiv1alpha2.AddToScheme(s))
 	test.AssertNoError(t, batchv1.AddToScheme(s))
 	test.AssertNoError(t, gitopsv1alpha1.AddToScheme(s))
 	return s, fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build()

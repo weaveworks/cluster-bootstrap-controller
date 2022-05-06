@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
+	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
 )
 
 // ClusterBootstrapConfigReconciler reconciles a ClusterBootstrapConfig object
@@ -70,7 +70,7 @@ func NewClusterBootstrapConfigReconciler(c client.Client, s *runtime.Scheme) *Cl
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	var clusterBootstrapConfig capiv1alpha1.ClusterBootstrapConfig
+	var clusterBootstrapConfig capiv1alpha2.ClusterBootstrapConfig
 	if err := r.Client.Get(ctx, req.NamespacedName, &clusterBootstrapConfig); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -112,7 +112,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 		mergePatch, err := json.Marshal(map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"annotations": map[string]interface{}{
-					capiv1alpha1.BootstrappedAnnotation: "yes",
+					capiv1alpha2.BootstrappedAnnotation: "yes",
 				},
 			},
 		})
@@ -129,7 +129,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterBootstrapConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&capiv1alpha1.ClusterBootstrapConfig{}).
+		For(&capiv1alpha2.ClusterBootstrapConfig{}).
 		Watches(
 			&source.Kind{Type: &gitopsv1alpha1.GitopsCluster{}},
 			handler.EnqueueRequestsFromMapFunc(r.clusterToClusterBootstrapConfig),
@@ -168,7 +168,7 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 			logger.Info("cluster discarded - not provisioned", "phase", c.Status)
 			continue
 		}
-		if metav1.HasAnnotation(c.ObjectMeta, capiv1alpha1.BootstrappedAnnotation) {
+		if metav1.HasAnnotation(c.ObjectMeta, capiv1alpha2.BootstrappedAnnotation) {
 			continue
 		}
 		if c.DeletionTimestamp.IsZero() {
@@ -187,7 +187,7 @@ func (r *ClusterBootstrapConfigReconciler) clusterToClusterBootstrapConfig(o cli
 		panic(fmt.Sprintf("Expected a Cluster but got a %T", o))
 	}
 
-	resourceList := capiv1alpha1.ClusterBootstrapConfigList{}
+	resourceList := capiv1alpha2.ClusterBootstrapConfigList{}
 	if err := r.Client.List(context.Background(), &resourceList, client.InNamespace(cluster.Namespace)); err != nil {
 		return nil
 	}

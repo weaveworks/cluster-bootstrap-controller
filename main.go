@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
+	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
 	"github.com/weaveworks/cluster-bootstrap-controller/controllers"
 	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
@@ -45,7 +45,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(capiv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(capiv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(gitopsv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
