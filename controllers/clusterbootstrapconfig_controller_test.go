@@ -18,6 +18,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/google/go-cmp/cmp"
 	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	"github.com/weaveworks/cluster-bootstrap-controller/test"
 	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
@@ -33,7 +34,7 @@ func TestReconcile_when_cluster_not_ready(t *testing.T) {
 	})
 	notReadyNode := makeNode(map[string]string{
 		"node-role.kubernetes.io/control-plane": "",
-	}, corev1.NodeCondition{Type: "Ready", Status: "False", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
+	}, corev1.NodeCondition{Type: corev1.NodeReady, Status: corev1.ConditionFalse, LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
 
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
@@ -96,13 +97,22 @@ func TestReconcile_when_cluster_secret_not_available(t *testing.T) {
 }
 
 func TestReconcile_when_cluster_ready(t *testing.T) {
+	testLabels := map[string]string{
+		"example.com/label": "testing",
+	}
+	testAnnotations := map[string]string{
+		"example.com/annotation": "testing",
+	}
 	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
+		c.ObjectMeta.Labels = testLabels
+		c.ObjectMeta.Annotations = testAnnotations
 	})
 	readyNode := makeNode(map[string]string{
 		"node-role.kubernetes.io/control-plane": "",
 	}, corev1.NodeCondition{
-		Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
+		Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(),
+		Reason: "KubeletReady", Message: "kubelet is posting ready status"})
 
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
@@ -135,6 +145,13 @@ func TestReconcile_when_cluster_ready(t *testing.T) {
 	}
 	if l := len(jobs.Items); l != 1 {
 		t.Fatalf("found %d jobs, want %d", l, 1)
+	}
+	createdJob := jobs.Items[0]
+	if diff := cmp.Diff(testLabels, createdJob.ObjectMeta.Labels); diff != "" {
+		t.Fatalf("labels not transferred:\n%s", diff)
+	}
+	if diff := cmp.Diff(testAnnotations, createdJob.ObjectMeta.Annotations); diff != "" {
+		t.Fatalf("annotations not transferred:\n%s", diff)
 	}
 }
 
@@ -210,7 +227,7 @@ func TestReconcile_when_cluster_ready_and_old_label(t *testing.T) {
 	})
 	readyNode := makeNode(map[string]string{
 		"node-role.kubernetes.io/master": "",
-	}, corev1.NodeCondition{Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(),
+	}, corev1.NodeCondition{Type: corev1.NodeReady, Status: corev1.ConditionTrue, LastHeartbeatTime: metav1.Now(),
 		LastTransitionTime: metav1.Now(), Reason: "KubeletReady",
 		Message: "kubelet is posting ready status"})
 

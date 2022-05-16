@@ -24,6 +24,8 @@ func bootstrapClusterWithConfig(ctx context.Context, logger logr.Logger, c clien
 	if err := controllerutil.SetOwnerReference(cl, job, c.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner for job: %w", err)
 	}
+	duplicateLabels(bc, job)
+	duplicateAnnotations(bc, job)
 	logger.Info("creating job", "generate-name", job.ObjectMeta.GenerateName, "namespace", job.ObjectMeta.Namespace)
 	if err := c.Create(ctx, job); err != nil {
 		return fmt.Errorf("failed to create job: %w", err)
@@ -44,4 +46,20 @@ func jobFromTemplate(cl *gitopsv1alpha1.GitopsCluster, jt capiv1alpha1.JobTempla
 			BackoffLimit: jt.BackoffLimit,
 		},
 	}
+}
+
+func duplicateLabels(bc *capiv1alpha1.ClusterBootstrapConfig, j *batchv1.Job) {
+	copiedLabels := map[string]string{}
+	for k, v := range bc.ObjectMeta.Labels {
+		copiedLabels[k] = v
+	}
+	j.ObjectMeta.Labels = copiedLabels
+}
+
+func duplicateAnnotations(bc *capiv1alpha1.ClusterBootstrapConfig, j *batchv1.Job) {
+	copiedAnnotations := map[string]string{}
+	for k, v := range bc.ObjectMeta.Annotations {
+		copiedAnnotations[k] = v
+	}
+	j.ObjectMeta.Annotations = copiedAnnotations
 }
