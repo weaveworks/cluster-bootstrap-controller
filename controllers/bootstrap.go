@@ -41,7 +41,8 @@ func jobFromTemplate(cl *gitopsv1alpha1.GitopsCluster, jt capiv1alpha1.JobTempla
 			Template: corev1.PodTemplateSpec{
 				Spec: jt.Spec,
 			},
-			BackoffLimit: jt.BackoffLimit,
+			BackoffLimit:            jt.BackoffLimit,
+			TTLSecondsAfterFinished: jt.TTLSecondsAfterFinished,
 		},
 	}
 }

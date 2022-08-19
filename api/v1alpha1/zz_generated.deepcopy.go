@@ -130,6 +130,11 @@ func (in *JobTemplate) DeepCopyInto(out *JobTemplate) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.TTLSecondsAfterFinished != nil {
+		in, out := &in.TTLSecondsAfterFinished, &out.TTLSecondsAfterFinished
+		*out = new(int32)
+		**out = **in
+	}
 	in.Spec.DeepCopyInto(&out.Spec)
 }
 
