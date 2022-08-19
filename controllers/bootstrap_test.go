@@ -120,6 +120,27 @@ func makeTestPodSpecWithVolumes(volumes ...corev1.Volume) corev1.PodSpec {
 	}
 }
 
+func Test_bootstrapClusterWithConfig_sets_job_ttl(t *testing.T) {
+	bc := makeTestClusterBootstrapConfig(func(cfg *capiv1alpha1.ClusterBootstrapConfig) {
+		cfg.Spec.Template.TTLSecondsAfterFinished = ptrutils.Int32Ptr(66)
+	})
+	cl := makeTestCluster()
+	tc := makeTestClient(t)
+
+	if err := bootstrapClusterWithConfig(context.TODO(), logr.Discard(), tc, cl, bc); err != nil {
+		t.Fatal(err)
+	}
+
+	var jobList batchv1.JobList
+	if err := tc.List(context.TODO(), &jobList, client.InNamespace(testNamespace)); err != nil {
+		t.Fatal(err)
+	}
+
+	if ttl := *jobList.Items[0].Spec.TTLSecondsAfterFinished; ttl != 66 {
+		t.Fatalf("got TTLSecondsAfterFinished %v, want %v", ttl, 66)
+	}
+}
+
 func makeTestCluster(opts ...func(*gitopsv1alpha1.GitopsCluster)) *gitopsv1alpha1.GitopsCluster {
 	c := &gitopsv1alpha1.GitopsCluster{
 		ObjectMeta: metav1.ObjectMeta{
