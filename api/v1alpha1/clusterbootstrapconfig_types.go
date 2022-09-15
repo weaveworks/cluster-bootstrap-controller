@@ -45,7 +45,7 @@ type JobTemplate struct {
 	// guarantees (e.g. finalizers) will be honored. If this field is unset,
 	// the Job won't be automatically deleted. If this field is set to zero,
 	// the Job becomes eligible to be deleted immediately after it finishes.
-	// +optional
+	//+optional
 	TTLSecondsAfterFinished *int32 `json:"ttlSecondsAfterFinished,omitempty"`
 
 	// A batch/v1 Job is created with the Spec as the PodSpec.
@@ -56,6 +56,13 @@ type JobTemplate struct {
 type ClusterBootstrapConfigSpec struct {
 	ClusterSelector metav1.LabelSelector `json:"clusterSelector"`
 	Template        JobTemplate          `json:"jobTemplate"`
+
+	// Trigger the bootstrapping when the linked cluster has a True
+	// ClusterProvisioned condition.
+	// Defaults to false.
+	//+kubebuilder:default:false
+	//+optional
+	RequireClusterProvisioned bool `json:"requireClusterProvisioned"`
 
 	// Wait for the remote cluster to be "ready" before creating the jobs.
 	// Defaults to false.
