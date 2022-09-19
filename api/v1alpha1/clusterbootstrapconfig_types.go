@@ -58,7 +58,12 @@ type ClusterBootstrapConfigSpec struct {
 	Template        JobTemplate          `json:"jobTemplate"`
 
 	// Trigger the bootstrapping when the linked cluster has a True
-	// ClusterProvisioned condition.
+	// "ClusterProvisioned" condition.
+	//
+	// A new job will not be triggered when the cluster is finally "Ready"
+	// because it will already have the annotation that indicates the cluster
+	// has been bootstrapped.
+	//
 	// Defaults to false.
 	//+kubebuilder:default:false
 	//+optional

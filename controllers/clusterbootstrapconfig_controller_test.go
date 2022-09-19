@@ -138,6 +138,82 @@ func TestReconcile_when_cluster_ready(t *testing.T) {
 	}
 }
 
+func TestReconcile_when_cluster_provisioned(t *testing.T) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
+		c.Spec.RequireClusterProvisioned = true
+	})
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
+		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
+		c.Status.Conditions = append(c.Status.Conditions, makeNotReadyCondition(), makeClusterProvisionedCondition())
+	})
+	secret := makeTestSecret(types.NamespacedName{
+		Name:      cl.GetName() + "-kubeconfig",
+		Namespace: cl.GetNamespace(),
+	}, map[string][]byte{"value": []byte("testing")})
+	// This cheats by using the local client as the remote client to simplify
+	// getting the value from the remote client.
+	reconciler := makeTestReconciler(t, bc, cl, secret)
+	reconciler.configParser = func(b []byte) (client.Client, error) {
+		return reconciler.Client, nil
+	}
+
+	result, err := reconciler.Reconcile(context.TODO(), ctrl.Request{NamespacedName: types.NamespacedName{
+		Name:      bc.GetName(),
+		Namespace: bc.GetNamespace(),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsZero() {
+		t.Fatalf("want empty result, got %v", result)
+	}
+	var jobs batchv1.JobList
+	if err := reconciler.List(context.TODO(), &jobs, client.InNamespace(testNamespace)); err != nil {
+		t.Fatal(err)
+	}
+	if l := len(jobs.Items); l != 1 {
+		t.Fatalf("found %d jobs, want %d", l, 1)
+	}
+}
+
+func TestReconcile_when_cluster_not_provisioned(t *testing.T) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
+		c.Spec.RequireClusterProvisioned = true
+	})
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
+		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
+		c.Status.Conditions = append(c.Status.Conditions, makeNotReadyCondition())
+	})
+	secret := makeTestSecret(types.NamespacedName{
+		Name:      cl.GetName() + "-kubeconfig",
+		Namespace: cl.GetNamespace(),
+	}, map[string][]byte{"value": []byte("testing")})
+	// This cheats by using the local client as the remote client to simplify
+	// getting the value from the remote client.
+	reconciler := makeTestReconciler(t, bc, cl, secret)
+	reconciler.configParser = func(b []byte) (client.Client, error) {
+		return reconciler.Client, nil
+	}
+
+	result, err := reconciler.Reconcile(context.TODO(), ctrl.Request{NamespacedName: types.NamespacedName{
+		Name:      bc.GetName(),
+		Namespace: bc.GetNamespace(),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsZero() {
+		t.Fatalf("want empty result, got %v", result)
+	}
+	var jobs batchv1.JobList
+	if err := reconciler.List(context.TODO(), &jobs, client.InNamespace(testNamespace)); err != nil {
+		t.Fatal(err)
+	}
+	if l := len(jobs.Items); l != 0 {
+		t.Fatalf("found %d jobs, want %d", l, 1)
+	}
+}
+
 func TestReconcile_when_cluster_no_matching_labels(t *testing.T) {
 	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
@@ -317,6 +393,20 @@ func makeReadyCondition() metav1.Condition {
 	return metav1.Condition{
 		Type:   "Ready",
 		Status: metav1.ConditionTrue,
+	}
+}
+
+func makeClusterProvisionedCondition() metav1.Condition {
+	return metav1.Condition{
+		Type:   gitopsv1alpha1.ClusterProvisionedCondition,
+		Status: metav1.ConditionTrue,
+	}
+}
+
+func makeNotReadyCondition() metav1.Condition {
+	return metav1.Condition{
+		Type:   "Ready",
+		Status: metav1.ConditionFalse,
 	}
 }
 

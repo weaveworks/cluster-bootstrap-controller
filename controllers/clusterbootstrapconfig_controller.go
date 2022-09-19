@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/fluxcd/pkg/runtime/conditions"
 	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -76,15 +77,22 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 	}
 	logger.Info("cluster bootstrap config loaded", "name", clusterBootstrapConfig.ObjectMeta.Name)
 
-	clusters, err := r.getClustersBySelector(ctx, req.Namespace, clusterBootstrapConfig.Spec.ClusterSelector)
+	clusters, err := r.getClustersBySelector(ctx, req.Namespace, clusterBootstrapConfig.Spec)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to getClustersBySelector for bootstrap config %s: %w", req, err)
 	}
 	logger.Info("identified clusters for reconciliation", "clusterCount", len(clusters))
 
-	for _, c := range clusters {
+	for _, cluster := range clusters {
+		if clusterBootstrapConfig.Spec.RequireClusterProvisioned {
+			if !isProvisioned(cluster) {
+				logger.Info("waiting for cluster to be provisioned", "cluster", cluster.Name)
+				continue
+			}
+		}
+
 		if clusterBootstrapConfig.Spec.RequireClusterReady {
-			clusterName := types.NamespacedName{Name: c.GetName(), Namespace: c.GetNamespace()}
+			clusterName := types.NamespacedName{Name: cluster.GetName(), Namespace: cluster.GetNamespace()}
 			clusterClient, err := r.clientForCluster(ctx, clusterName)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
@@ -105,7 +113,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 				return ctrl.Result{RequeueAfter: clusterBootstrapConfig.ClusterReadinessRequeue()}, nil
 			}
 		}
-		if err := bootstrapClusterWithConfig(ctx, logger, r.Client, c, &clusterBootstrapConfig); err != nil {
+		if err := bootstrapClusterWithConfig(ctx, logger, r.Client, cluster, &clusterBootstrapConfig); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to bootstrap cluster config: %w", err)
 		}
 
@@ -119,8 +127,8 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create a patch to update the cluster annotations: %w", err)
 		}
-		if err := r.Client.Patch(ctx, c, client.RawPatch(types.MergePatchType, mergePatch)); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to annotate cluster %s/%s as bootstrapped: %w", c.ObjectMeta.Name, c.ObjectMeta.Namespace, err)
+		if err := r.Client.Patch(ctx, cluster, client.RawPatch(types.MergePatchType, mergePatch)); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to annotate cluster %s/%s as bootstrapped: %w", cluster.ObjectMeta.Name, cluster.ObjectMeta.Namespace, err)
 		}
 	}
 	return ctrl.Result{}, nil
@@ -137,9 +145,9 @@ func (r *ClusterBootstrapConfigReconciler) SetupWithManager(mgr ctrl.Manager) er
 		Complete(r)
 }
 
-func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, ls metav1.LabelSelector) ([]*gitopsv1alpha1.GitopsCluster, error) {
+func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, spec capiv1alpha1.ClusterBootstrapConfigSpec) ([]*gitopsv1alpha1.GitopsCluster, error) {
 	logger := ctrl.LoggerFrom(ctx)
-	selector, err := metav1.LabelSelectorAsSelector(&ls)
+	selector, err := metav1.LabelSelectorAsSelector(&spec.ClusterSelector)
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert selector: %w", err)
 	}
@@ -156,23 +164,17 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 	logger.Info("identified clusters with selector", "selector", selector, "count", len(clusterList.Items))
 	clusters := []*gitopsv1alpha1.GitopsCluster{}
 	for i := range clusterList.Items {
-		c := &clusterList.Items[i]
+		cluster := &clusterList.Items[i]
 
-		clusterFound := false
-		for _, condition := range c.Status.Conditions {
-			if condition.Type == "Ready" && condition.Status == metav1.ConditionTrue {
-				clusterFound = true
-			}
-		}
-		if !clusterFound {
-			logger.Info("cluster discarded - not provisioned", "phase", c.Status)
+		if !conditions.IsReady(cluster) && !spec.RequireClusterProvisioned {
+			logger.Info("cluster discarded - not ready", "phase", cluster.Status)
 			continue
 		}
-		if metav1.HasAnnotation(c.ObjectMeta, capiv1alpha1.BootstrappedAnnotation) {
+		if metav1.HasAnnotation(cluster.ObjectMeta, capiv1alpha1.BootstrappedAnnotation) {
 			continue
 		}
-		if c.DeletionTimestamp.IsZero() {
-			clusters = append(clusters, c)
+		if cluster.DeletionTimestamp.IsZero() {
+			clusters = append(clusters, cluster)
 		}
 	}
 	return clusters, nil
@@ -269,4 +271,8 @@ func kubeConfigBytesToClient(b []byte) (client.Client, error) {
 		return nil, fmt.Errorf("failed to create a client from config: %w", err)
 	}
 	return client, nil
+}
+
+func isProvisioned(from conditions.Getter) bool {
+	return conditions.IsTrue(from, gitopsv1alpha1.ClusterProvisionedCondition)
 }
