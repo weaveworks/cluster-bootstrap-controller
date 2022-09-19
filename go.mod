@@ -6,7 +6,7 @@ require (
 	github.com/fluxcd/pkg/runtime v0.13.2
 	github.com/go-logr/logr v1.2.2
 	github.com/google/go-cmp v0.5.7
-	github.com/weaveworks/cluster-controller v0.0.0-20220412121721-313761dc9997
+	github.com/weaveworks/cluster-controller v1.3.1
 	k8s.io/api v0.23.4
 	k8s.io/apimachinery v0.23.4
 	k8s.io/client-go v0.23.4
@@ -73,5 +73,3 @@ require (
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
-
-// replace github.com/weaveworks/cluster-controller => ../cluster-controller

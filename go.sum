@@ -475,8 +475,8 @@ github.com/stretchr/testify v1.7.1 h1:5TQK59W5E3v0r2duFAb7P95B6hEeOyEnHRa8MjYSMT
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
-github.com/weaveworks/cluster-controller v0.0.0-20220412121721-313761dc9997 h1:Zqd31j0NsabnrWTTSUGnoDUrDlE7irUMLRV9KZJhYh0=
-github.com/weaveworks/cluster-controller v0.0.0-20220412121721-313761dc9997/go.mod h1:e0Bka2iXVITQG+cG7/u8ZOB5QTaguMmgg+n5nrYaqxQ=
+github.com/weaveworks/cluster-controller v1.3.1 h1:SHtfhgYu9RUPcfuk1Zqh+zSwdis8WjT8rmCJfcF2nDI=
+github.com/weaveworks/cluster-controller v1.3.1/go.mod h1:e0Bka2iXVITQG+cG7/u8ZOB5QTaguMmgg+n5nrYaqxQ=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
