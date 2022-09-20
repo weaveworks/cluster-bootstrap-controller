@@ -85,13 +85,6 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 	logger.Info("identified clusters for reconciliation", "clusterCount", len(clusters))
 
 	for _, cluster := range clusters {
-		if clusterBootstrapConfig.Spec.RequireClusterProvisioned {
-			if !isProvisioned(cluster) {
-				logger.Info("waiting for cluster to be provisioned", "cluster", cluster.Name)
-				continue
-			}
-		}
-
 		if clusterBootstrapConfig.Spec.RequireClusterReady {
 			clusterName := types.NamespacedName{Name: cluster.GetName(), Namespace: cluster.GetNamespace()}
 			clusterClient, err := r.clientForCluster(ctx, clusterName)
@@ -171,6 +164,13 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 			logger.Info("cluster discarded - not ready", "phase", cluster.Status)
 			continue
 		}
+		if spec.RequireClusterProvisioned {
+			if !isProvisioned(cluster) {
+				logger.Info("waiting for cluster to be provisioned", "cluster", cluster.Name)
+				continue
+			}
+		}
+
 		if metav1.HasAnnotation(cluster.ObjectMeta, capiv1alpha1.BootstrappedAnnotation) {
 			continue
 		}
