@@ -61,3 +61,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - gitops.weave.works
+  resources:
+  - gitopsclusters
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
