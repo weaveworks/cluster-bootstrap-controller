@@ -15,7 +15,7 @@ spec:
     singular: clusterbootstrapconfig
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: v1alpha2
     schema:
       openAPIV3Schema:
         description: ClusterBootstrapConfig is the Schema for the clusterbootstrapconfigs

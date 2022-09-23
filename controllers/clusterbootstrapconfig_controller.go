@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
+	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
 )
 
 // ClusterBootstrapConfigReconciler reconciles a ClusterBootstrapConfig object
@@ -74,7 +74,7 @@ func NewClusterBootstrapConfigReconciler(c client.Client, s *runtime.Scheme) *Cl
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	var clusterBootstrapConfig capiv1alpha1.ClusterBootstrapConfig
+	var clusterBootstrapConfig capiv1alpha2.ClusterBootstrapConfig
 	if err := r.Client.Get(ctx, req.NamespacedName, &clusterBootstrapConfig); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -116,8 +116,8 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 		mergePatch, err := json.Marshal(map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"annotations": map[string]interface{}{
-					capiv1alpha1.BootstrappedAnnotation:     "yes",
-					capiv1alpha1.BootstrapConfigsAnnotation: appendClusterConfigToBootstrappedList(clusterBootstrapConfig, cluster),
+					capiv1alpha2.BootstrappedAnnotation:     "yes",
+					capiv1alpha2.BootstrapConfigsAnnotation: appendClusterConfigToBootstrappedList(clusterBootstrapConfig, cluster),
 				},
 			},
 		})
@@ -131,8 +131,8 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 	return ctrl.Result{}, nil
 }
 
-func appendClusterConfigToBootstrappedList(config capiv1alpha1.ClusterBootstrapConfig, cluster *gitopsv1alpha1.GitopsCluster) string {
-	current := cluster.GetAnnotations()[capiv1alpha1.BootstrapConfigsAnnotation]
+func appendClusterConfigToBootstrappedList(config capiv1alpha2.ClusterBootstrapConfig, cluster *gitopsv1alpha1.GitopsCluster) string {
+	current := cluster.GetAnnotations()[capiv1alpha2.BootstrapConfigsAnnotation]
 	set := sets.NewString(strings.Split(current, ",")...)
 	id := fmt.Sprintf("%s/%s", config.GetNamespace(), config.GetName())
 	set.Insert(id)
@@ -142,7 +142,7 @@ func appendClusterConfigToBootstrappedList(config capiv1alpha1.ClusterBootstrapC
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterBootstrapConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&capiv1alpha1.ClusterBootstrapConfig{}).
+		For(&capiv1alpha2.ClusterBootstrapConfig{}).
 		Watches(
 			&source.Kind{Type: &gitopsv1alpha1.GitopsCluster{}},
 			handler.EnqueueRequestsFromMapFunc(r.clusterToClusterBootstrapConfig),
@@ -150,7 +150,7 @@ func (r *ClusterBootstrapConfigReconciler) SetupWithManager(mgr ctrl.Manager) er
 		Complete(r)
 }
 
-func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, config capiv1alpha1.ClusterBootstrapConfig) ([]*gitopsv1alpha1.GitopsCluster, error) {
+func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, config capiv1alpha2.ClusterBootstrapConfig) ([]*gitopsv1alpha1.GitopsCluster, error) {
 	logger := ctrl.LoggerFrom(ctx)
 	selector, err := metav1.LabelSelectorAsSelector(&config.Spec.ClusterSelector)
 	if err != nil {
@@ -182,7 +182,7 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 			}
 		}
 
-		if metav1.HasAnnotation(cluster.ObjectMeta, capiv1alpha1.BootstrappedAnnotation) {
+		if metav1.HasAnnotation(cluster.ObjectMeta, capiv1alpha2.BootstrappedAnnotation) {
 			if alreadyBootstrappedWithConfig(cluster, config) {
 				continue
 			}
@@ -194,8 +194,8 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 	return clusters, nil
 }
 
-func alreadyBootstrappedWithConfig(cluster *gitopsv1alpha1.GitopsCluster, config capiv1alpha1.ClusterBootstrapConfig) bool {
-	current := cluster.GetAnnotations()[capiv1alpha1.BootstrapConfigsAnnotation]
+func alreadyBootstrappedWithConfig(cluster *gitopsv1alpha1.GitopsCluster, config capiv1alpha2.ClusterBootstrapConfig) bool {
+	current := cluster.GetAnnotations()[capiv1alpha2.BootstrapConfigsAnnotation]
 	set := sets.NewString(strings.Split(current, ",")...)
 	id := fmt.Sprintf("%s/%s", config.GetNamespace(), config.GetName())
 	return set.Has(id)
@@ -210,7 +210,7 @@ func (r *ClusterBootstrapConfigReconciler) clusterToClusterBootstrapConfig(o cli
 		panic(fmt.Sprintf("Expected a Cluster but got a %T", o))
 	}
 
-	resourceList := capiv1alpha1.ClusterBootstrapConfigList{}
+	resourceList := capiv1alpha2.ClusterBootstrapConfigList{}
 	if err := r.Client.List(context.Background(), &resourceList, client.InNamespace(cluster.Namespace)); err != nil {
 		return nil
 	}
