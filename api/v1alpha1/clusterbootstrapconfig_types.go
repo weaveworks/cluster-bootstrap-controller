@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha2
+package v1alpha1
 
 import (
 	"time"
@@ -90,7 +90,6 @@ type ClusterBootstrapConfigStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:storageversion
 
 // ClusterBootstrapConfig is the Schema for the clusterbootstrapconfigs API
 type ClusterBootstrapConfig struct {
