@@ -25,7 +25,10 @@ import (
 
 const defaultWaitDuration = time.Second * 60
 
-const BootstrappedAnnotation = "capi.weave.works/bootstrapped"
+const (
+	BootstrappedAnnotation     = "capi.weave.works/bootstrapped"
+	BootstrapConfigsAnnotation = "capi.weave.works/bootstrap-configs"
+)
 
 // JobTemplate describes a job to create
 type JobTemplate struct {

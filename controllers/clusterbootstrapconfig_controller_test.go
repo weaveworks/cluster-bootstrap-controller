@@ -138,6 +138,100 @@ func TestReconcile_when_cluster_ready(t *testing.T) {
 	}
 }
 
+func TestReconcile_when_cluster_ready_bootstrapped_with_same_config(t *testing.T) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
+		c.Spec.RequireClusterReady = true
+	})
+	readyNode := makeNode(map[string]string{
+		"node-role.kubernetes.io/control-plane": "",
+	}, corev1.NodeCondition{
+		Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
+
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
+		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
+		c.ObjectMeta.Annotations = map[string]string{
+			capiv1alpha1.BootstrappedAnnotation:     "true",
+			capiv1alpha1.BootstrapConfigsAnnotation: fmt.Sprintf("%s/%s", bc.Namespace, bc.Name),
+		}
+	})
+	secret := makeTestSecret(types.NamespacedName{
+		Name:      cl.GetName() + "-kubeconfig",
+		Namespace: cl.GetNamespace(),
+	}, map[string][]byte{"value": []byte("testing")})
+	// This cheats by using the local client as the remote client to simplify
+	// getting the value from the remote client.
+	reconciler := makeTestReconciler(t, bc, cl, secret, readyNode)
+	reconciler.configParser = func(b []byte) (client.Client, error) {
+		return reconciler.Client, nil
+	}
+
+	result, err := reconciler.Reconcile(context.TODO(), ctrl.Request{NamespacedName: types.NamespacedName{
+		Name:      bc.GetName(),
+		Namespace: bc.GetNamespace(),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsZero() {
+		t.Fatalf("want empty result, got %v", result)
+	}
+	var jobs batchv1.JobList
+	if err := reconciler.List(context.TODO(), &jobs, client.InNamespace(testNamespace)); err != nil {
+		t.Fatal(err)
+	}
+	if l := len(jobs.Items); l != 0 {
+		t.Fatalf("found %d jobs, want %d", l, 0)
+	}
+}
+
+func TestReconcile_when_cluster_ready_bootstrapped_with_different_config(t *testing.T) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
+		c.Spec.RequireClusterReady = true
+	})
+	readyNode := makeNode(map[string]string{
+		"node-role.kubernetes.io/control-plane": "",
+	}, corev1.NodeCondition{
+		Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
+
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
+		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
+		c.ObjectMeta.Annotations = map[string]string{
+			capiv1alpha1.BootstrappedAnnotation:     "true",
+			capiv1alpha1.BootstrapConfigsAnnotation: "unknown/unknown",
+		}
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
+	})
+	secret := makeTestSecret(types.NamespacedName{
+		Name:      cl.GetName() + "-kubeconfig",
+		Namespace: cl.GetNamespace(),
+	}, map[string][]byte{"value": []byte("testing")})
+	// This cheats by using the local client as the remote client to simplify
+	// getting the value from the remote client.
+	reconciler := makeTestReconciler(t, bc, cl, secret, readyNode)
+	reconciler.configParser = func(b []byte) (client.Client, error) {
+		return reconciler.Client, nil
+	}
+
+	result, err := reconciler.Reconcile(context.TODO(), ctrl.Request{NamespacedName: types.NamespacedName{
+		Name:      bc.GetName(),
+		Namespace: bc.GetNamespace(),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsZero() {
+		t.Fatalf("want empty result, got %v", result)
+	}
+	var jobs batchv1.JobList
+	if err := reconciler.List(context.TODO(), &jobs, client.InNamespace(testNamespace)); err != nil {
+		t.Fatal(err)
+	}
+	if l := len(jobs.Items); l != 1 {
+		t.Fatalf("found %d jobs, want %d", l, 1)
+	}
+}
+
 func TestReconcile_when_cluster_provisioned(t *testing.T) {
 	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterProvisioned = true
@@ -242,6 +336,56 @@ func TestReconcile_when_cluster_no_matching_labels(t *testing.T) {
 		t.Fatalf("want empty result, got %v", result)
 	}
 	assertNoJobsCreated(t, reconciler.Client)
+}
+
+func TestReconcile_when_cluster_ready_bootstrapped_with_multiple_config(t *testing.T) {
+	// Multiple configs can bootstrap the same cluster
+	// If the reconciled cluster is in that list (anywhere) then we don't create
+	// jobs.
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
+		c.Spec.RequireClusterReady = true
+	})
+	readyNode := makeNode(map[string]string{
+		"node-role.kubernetes.io/control-plane": "",
+	}, corev1.NodeCondition{
+		Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
+
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
+		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
+		c.ObjectMeta.Annotations = map[string]string{
+			capiv1alpha1.BootstrappedAnnotation:     "true",
+			capiv1alpha1.BootstrapConfigsAnnotation: fmt.Sprintf("%s,%s/%s", "unknown/unknown", bc.GetNamespace(), bc.GetName()),
+		}
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
+	})
+	secret := makeTestSecret(types.NamespacedName{
+		Name:      cl.GetName() + "-kubeconfig",
+		Namespace: cl.GetNamespace(),
+	}, map[string][]byte{"value": []byte("testing")})
+	// This cheats by using the local client as the remote client to simplify
+	// getting the value from the remote client.
+	reconciler := makeTestReconciler(t, bc, cl, secret, readyNode)
+	reconciler.configParser = func(b []byte) (client.Client, error) {
+		return reconciler.Client, nil
+	}
+
+	result, err := reconciler.Reconcile(context.TODO(), ctrl.Request{NamespacedName: types.NamespacedName{
+		Name:      bc.GetName(),
+		Namespace: bc.GetNamespace(),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsZero() {
+		t.Fatalf("want empty result, got %v", result)
+	}
+	var jobs batchv1.JobList
+	if err := reconciler.List(context.TODO(), &jobs, client.InNamespace(testNamespace)); err != nil {
+		t.Fatal(err)
+	}
+	if l := len(jobs.Items); l != 0 {
+		t.Fatalf("found %d jobs, want %d", l, 0)
+	}
 }
 
 func TestReconcile_when_empty_label_selector(t *testing.T) {

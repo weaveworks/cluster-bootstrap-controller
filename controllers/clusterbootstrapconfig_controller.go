@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/fluxcd/pkg/runtime/conditions"
 	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,7 +80,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 	}
 	logger.Info("cluster bootstrap config loaded", "name", clusterBootstrapConfig.ObjectMeta.Name)
 
-	clusters, err := r.getClustersBySelector(ctx, req.Namespace, clusterBootstrapConfig.Spec)
+	clusters, err := r.getClustersBySelector(ctx, req.Namespace, clusterBootstrapConfig)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to getClustersBySelector for bootstrap config %s: %w", req, err)
 	}
@@ -114,7 +116,8 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 		mergePatch, err := json.Marshal(map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"annotations": map[string]interface{}{
-					capiv1alpha1.BootstrappedAnnotation: "yes",
+					capiv1alpha1.BootstrappedAnnotation:     "yes",
+					capiv1alpha1.BootstrapConfigsAnnotation: appendClusterConfigToBootstrappedList(clusterBootstrapConfig, cluster),
 				},
 			},
 		})
@@ -128,6 +131,14 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 	return ctrl.Result{}, nil
 }
 
+func appendClusterConfigToBootstrappedList(config capiv1alpha1.ClusterBootstrapConfig, cluster *gitopsv1alpha1.GitopsCluster) string {
+	current := cluster.GetAnnotations()[capiv1alpha1.BootstrapConfigsAnnotation]
+	set := sets.NewString(strings.Split(current, ",")...)
+	id := fmt.Sprintf("%s/%s", config.GetNamespace(), config.GetName())
+	set.Insert(id)
+	return strings.Join(set.List(), ",")
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterBootstrapConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
@@ -139,9 +150,9 @@ func (r *ClusterBootstrapConfigReconciler) SetupWithManager(mgr ctrl.Manager) er
 		Complete(r)
 }
 
-func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, spec capiv1alpha1.ClusterBootstrapConfigSpec) ([]*gitopsv1alpha1.GitopsCluster, error) {
+func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, config capiv1alpha1.ClusterBootstrapConfig) ([]*gitopsv1alpha1.GitopsCluster, error) {
 	logger := ctrl.LoggerFrom(ctx)
-	selector, err := metav1.LabelSelectorAsSelector(&spec.ClusterSelector)
+	selector, err := metav1.LabelSelectorAsSelector(&config.Spec.ClusterSelector)
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert selector: %w", err)
 	}
@@ -160,11 +171,11 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 	for i := range clusterList.Items {
 		cluster := &clusterList.Items[i]
 
-		if !conditions.IsReady(cluster) && !spec.RequireClusterProvisioned {
+		if !conditions.IsReady(cluster) && !config.Spec.RequireClusterProvisioned {
 			logger.Info("cluster discarded - not ready", "phase", cluster.Status)
 			continue
 		}
-		if spec.RequireClusterProvisioned {
+		if config.Spec.RequireClusterProvisioned {
 			if !isProvisioned(cluster) {
 				logger.Info("waiting for cluster to be provisioned", "cluster", cluster.Name)
 				continue
@@ -172,13 +183,22 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 		}
 
 		if metav1.HasAnnotation(cluster.ObjectMeta, capiv1alpha1.BootstrappedAnnotation) {
-			continue
+			if alreadyBootstrappedWithConfig(cluster, config) {
+				continue
+			}
 		}
 		if cluster.DeletionTimestamp.IsZero() {
 			clusters = append(clusters, cluster)
 		}
 	}
 	return clusters, nil
+}
+
+func alreadyBootstrappedWithConfig(cluster *gitopsv1alpha1.GitopsCluster, config capiv1alpha1.ClusterBootstrapConfig) bool {
+	current := cluster.GetAnnotations()[capiv1alpha1.BootstrapConfigsAnnotation]
+	set := sets.NewString(strings.Split(current, ",")...)
+	id := fmt.Sprintf("%s/%s", config.GetNamespace(), config.GetName())
+	return set.Has(id)
 }
 
 // clusterToClusterBootstrapConfig is mapper function that maps clusters to
