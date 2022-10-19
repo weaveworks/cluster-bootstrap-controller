@@ -7,7 +7,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
+	capialpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
 	"github.com/weaveworks/cluster-bootstrap-controller/test"
 
 	"github.com/google/go-cmp/cmp"
@@ -22,7 +22,7 @@ func Test_renderTemplates(t *testing.T) {
 	)
 	renderTests := []struct {
 		name string
-		job  capiv1alpha1.JobTemplate
+		job  capialpha2.JobTemplate
 		want *batchv1.Job
 	}{
 		{"no template values", makeTestJobTemplate("testing"), jobFromTemplate(testCluster, makeTestJobTemplate("testing"))},
@@ -53,7 +53,7 @@ func Test_renderTemplates_with_errors(t *testing.T) {
 	)
 	renderTests := []struct {
 		name    string
-		job     capiv1alpha1.JobTemplate
+		job     capialpha2.JobTemplate
 		wantErr string
 	}{
 		{"invalid syntax", makeTestJobTemplate("{{ abels}"), "failed to parse template: template: job"},
@@ -71,8 +71,8 @@ func Test_renderTemplates_with_errors(t *testing.T) {
 	}
 }
 
-func makeTestJobTemplate(s string) capiv1alpha1.JobTemplate {
-	return capiv1alpha1.JobTemplate{
+func makeTestJobTemplate(s string) capialpha2.JobTemplate {
+	return capialpha2.JobTemplate{
 		GenerateName: "setup-something",
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
