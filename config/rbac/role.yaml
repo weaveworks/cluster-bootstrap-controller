@@ -52,6 +52,32 @@ rules:
   - patch
   - update
 - apiGroups:
+  - capi.weave.works
+  resources:
+  - secretsyncs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - capi.weave.works
+  resources:
+  - secretsyncs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - capi.weave.works
+  resources:
+  - secretsyncs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - cluster.x-k8s.io
   resources:
   - clusters
