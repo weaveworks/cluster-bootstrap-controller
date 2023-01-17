@@ -11,7 +11,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -530,42 +529,6 @@ func Test_kubeConfigBytesToClient_with_invalidkubeconfig(t *testing.T) {
 	_, err := kubeConfigBytesToClient([]byte("testing"))
 	if err == nil {
 		t.Fatal("expected to get an error parsing an invalid kubeconfig secret")
-	}
-}
-
-func makeReadyCondition() metav1.Condition {
-	return metav1.Condition{
-		Type:   "Ready",
-		Status: metav1.ConditionTrue,
-	}
-}
-
-func makeClusterProvisionedCondition() metav1.Condition {
-	return metav1.Condition{
-		Type:   gitopsv1alpha1.ClusterProvisionedCondition,
-		Status: metav1.ConditionTrue,
-	}
-}
-
-func makeNotReadyCondition() metav1.Condition {
-	return metav1.Condition{
-		Type:   "Ready",
-		Status: metav1.ConditionFalse,
-	}
-}
-
-func makeTestReconciler(t *testing.T, objs ...runtime.Object) *ClusterBootstrapConfigReconciler {
-	s, tc := makeTestClientAndScheme(t, objs...)
-	return NewClusterBootstrapConfigReconciler(tc, s)
-}
-
-func makeTestSecret(name types.NamespacedName, data map[string][]byte) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: name.Namespace,
-			Name:      name.Name,
-		},
-		Data: data,
 	}
 }
 

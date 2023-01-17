@@ -23,18 +23,14 @@ import (
 	"strings"
 
 	"github.com/fluxcd/pkg/runtime/conditions"
-	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+	clustersv1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -46,7 +42,7 @@ import (
 type ClusterBootstrapConfigReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
-	configParser func(b []byte) (client.Client, error)
+	configParser ConfigParser
 }
 
 // NewClusterBootstrapConfigReconcielr creates and returns a configured
@@ -89,7 +85,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 	for _, cluster := range clusters {
 		if clusterBootstrapConfig.Spec.RequireClusterReady {
 			clusterName := types.NamespacedName{Name: cluster.GetName(), Namespace: cluster.GetNamespace()}
-			clusterClient, err := r.clientForCluster(ctx, clusterName)
+			clusterClient, err := clientForCluster(ctx, r.Client, r.configParser, clusterName)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					logger.Info("waiting for cluster access secret to be available")
@@ -131,7 +127,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 	return ctrl.Result{}, nil
 }
 
-func appendClusterConfigToBootstrappedList(config capiv1alpha1.ClusterBootstrapConfig, cluster *gitopsv1alpha1.GitopsCluster) string {
+func appendClusterConfigToBootstrappedList(config capiv1alpha1.ClusterBootstrapConfig, cluster *clustersv1.GitopsCluster) string {
 	current := cluster.GetAnnotations()[capiv1alpha1.BootstrapConfigsAnnotation]
 	set := sets.NewString(strings.Split(current, ",")...)
 	id := fmt.Sprintf("%s/%s", config.GetNamespace(), config.GetName())
@@ -144,13 +140,13 @@ func (r *ClusterBootstrapConfigReconciler) SetupWithManager(mgr ctrl.Manager) er
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&capiv1alpha1.ClusterBootstrapConfig{}).
 		Watches(
-			&source.Kind{Type: &gitopsv1alpha1.GitopsCluster{}},
+			&source.Kind{Type: &clustersv1.GitopsCluster{}},
 			handler.EnqueueRequestsFromMapFunc(r.clusterToClusterBootstrapConfig),
 		).
 		Complete(r)
 }
 
-func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, config capiv1alpha1.ClusterBootstrapConfig) ([]*gitopsv1alpha1.GitopsCluster, error) {
+func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Context, ns string, config capiv1alpha1.ClusterBootstrapConfig) ([]*clustersv1.GitopsCluster, error) {
 	logger := ctrl.LoggerFrom(ctx)
 	selector, err := metav1.LabelSelectorAsSelector(&config.Spec.ClusterSelector)
 	if err != nil {
@@ -161,13 +157,13 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 		logger.Info("empty ClusterBootstrapConfig selector: no clusters are selected")
 		return nil, nil
 	}
-	clusterList := &gitopsv1alpha1.GitopsClusterList{}
+	clusterList := &clustersv1.GitopsClusterList{}
 	if err := r.Client.List(ctx, clusterList, client.InNamespace(ns), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return nil, fmt.Errorf("failed to list clusters: %w", err)
 	}
 
 	logger.Info("identified clusters with selector", "selector", selector, "count", len(clusterList.Items))
-	clusters := []*gitopsv1alpha1.GitopsCluster{}
+	clusters := []*clustersv1.GitopsCluster{}
 	for i := range clusterList.Items {
 		cluster := &clusterList.Items[i]
 
@@ -194,7 +190,7 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 	return clusters, nil
 }
 
-func alreadyBootstrappedWithConfig(cluster *gitopsv1alpha1.GitopsCluster, config capiv1alpha1.ClusterBootstrapConfig) bool {
+func alreadyBootstrappedWithConfig(cluster *clustersv1.GitopsCluster, config capiv1alpha1.ClusterBootstrapConfig) bool {
 	current := cluster.GetAnnotations()[capiv1alpha1.BootstrapConfigsAnnotation]
 	set := sets.NewString(strings.Split(current, ",")...)
 	id := fmt.Sprintf("%s/%s", config.GetNamespace(), config.GetName())
@@ -205,7 +201,7 @@ func alreadyBootstrappedWithConfig(cluster *gitopsv1alpha1.GitopsCluster, config
 // ClusterBootstrapConfig.
 func (r *ClusterBootstrapConfigReconciler) clusterToClusterBootstrapConfig(o client.Object) []ctrl.Request {
 	result := []ctrl.Request{}
-	cluster, ok := o.(*gitopsv1alpha1.GitopsCluster)
+	cluster, ok := o.(*clustersv1.GitopsCluster)
 	if !ok {
 		panic(fmt.Sprintf("Expected a Cluster but got a %T", o))
 	}
@@ -215,85 +211,17 @@ func (r *ClusterBootstrapConfigReconciler) clusterToClusterBootstrapConfig(o cli
 		return nil
 	}
 
-	labels := labels.Set(cluster.GetLabels())
 	for i := range resourceList.Items {
 		rs := &resourceList.Items[i]
-		selector, err := metav1.LabelSelectorAsSelector(&rs.Spec.ClusterSelector)
-		if err != nil {
-			return nil
-		}
-
-		// If a ClusterResourceSet has a nil or empty selector, it should match nothing, not everything.
-		if selector.Empty() {
-			return nil
-		}
-
-		if !selector.Matches(labels) {
+		if !matchCluster(cluster, rs.Spec.ClusterSelector) {
 			continue
 		}
-
 		name := client.ObjectKey{Namespace: rs.Namespace, Name: rs.Name}
 		result = append(result, ctrl.Request{NamespacedName: name})
 	}
 	return result
 }
 
-func (r *ClusterBootstrapConfigReconciler) clientForCluster(ctx context.Context, name types.NamespacedName) (client.Client, error) {
-	kubeConfigBytes, err := r.getKubeConfig(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := r.configParser(kubeConfigBytes)
-	if err != nil {
-		return nil, fmt.Errorf("getting client for cluster %s: %w", name, err)
-	}
-	return client, nil
-}
-
-func (r *ClusterBootstrapConfigReconciler) getKubeConfig(ctx context.Context, cluster types.NamespacedName) ([]byte, error) {
-	secretName := types.NamespacedName{
-		Namespace: cluster.Namespace,
-		Name:      cluster.Name + "-kubeconfig",
-	}
-
-	var secret corev1.Secret
-	if err := r.Client.Get(ctx, secretName, &secret); err != nil {
-		return nil, fmt.Errorf("unable to read KubeConfig secret %q error: %w", secretName, err)
-	}
-
-	var kubeConfig []byte
-	for k := range secret.Data {
-		if k == "value" || k == "value.yaml" {
-			kubeConfig = secret.Data[k]
-			break
-		}
-	}
-
-	if len(kubeConfig) == 0 {
-		return nil, fmt.Errorf("KubeConfig secret %q doesn't contain a 'value' key ", secretName)
-	}
-
-	return kubeConfig, nil
-}
-
-func kubeConfigBytesToClient(b []byte) (client.Client, error) {
-	restConfig, err := clientcmd.RESTConfigFromKubeConfig(b)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse KubeConfig from secret: %w", err)
-	}
-	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create RESTMapper from config: %w", err)
-	}
-
-	client, err := client.New(restConfig, client.Options{Mapper: restMapper})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a client from config: %w", err)
-	}
-	return client, nil
-}
-
 func isProvisioned(from conditions.Getter) bool {
-	return conditions.IsTrue(from, gitopsv1alpha1.ClusterProvisionedCondition)
+	return conditions.IsTrue(from, clustersv1.ClusterProvisionedCondition)
 }

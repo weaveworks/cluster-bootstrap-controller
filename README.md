@@ -2,7 +2,14 @@
 
 This is a controller that tracks [GitopsCluster] objects.
 
-It provides a CR for a `ClusterBootstrapConfig` which provides a [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) template.
+It provides the following CRs:
+
+- [ClusterBootstrapConfig](#clusterBootstrapConfig)
+- [SecretSync](#secretsync)
+
+## ClusterBootstrapConfig
+
+`ClusterBootstrapConfig` CR provides a [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) template.
 
 When a GitopsCluster is "Ready" a Job is created from the template, the template can access multiple fields.
 
@@ -36,7 +43,7 @@ spec:
 
 This is using Go [templating](https://pkg.go.dev/text/template) and the `GitopsCluster` object is provided as the context, this means that expressions like `{{ .ObjectMeta.Name }}` will get the _name_ of the GitopsCluster that has transitioned to "Ready".
 
-## Annotations
+### Annotations
 
 Go templating doesn't easily support access to strings that have "/" in them,
 which is a common annotation [naming strategy](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/#syntax-and-character-set).
@@ -52,6 +59,35 @@ e.g.
           secretName: '{{ annotation "example.com/secret-name }}'
 
 ```
+
+## SecretSync
+
+`SecretSync` provides a way to sync secrets from management cluster to leaf cluster.
+
+The CR references the secret on management cluster to be synced to matched leaf clusters.
+
+SecretSync has a selector to select group of clusters based on their labels
+
+Secrets will be re-synced to leaf clusters when updated
+
+### Example
+
+```yaml
+apiVersion: capi.weave.works/v1alpha2
+kind: SecretSync
+metadata:
+  name: my-dev-secret-syncer
+  namespace: default
+spec:
+  clusterSelector:
+    matchLabels:
+      environment: dev
+  secretRef:
+    name: my-dev-secret
+  targetNamespace: my-namespace
+```
+
+
 
 ## Installation
 
