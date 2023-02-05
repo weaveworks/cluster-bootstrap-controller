@@ -91,7 +91,7 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if !secret.DeletionTimestamp.IsZero() {
-		logger.Info("skipping secret", "name", secret.Name, "namespace", secret.Namespace, "reason", "Deleted")
+		logger.Info("skipping secret", "secret", secret.Name, "namespace", secret.Namespace, "reason", "Deleted")
 		return ctrl.Result{}, nil
 	}
 
@@ -112,8 +112,15 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	var requeue bool
 
+	patch := client.MergeFrom(secretSync.DeepCopy())
+
 	for i := range clusters.Items {
 		cluster := clusters.Items[i]
+
+		if secretSync.Status.GetClusterSecretVersion(cluster.Name, secret.Name) == secret.ResourceVersion {
+			logger.Info("skipping cluster", "cluster", cluster.Name, "namespace", req.Namespace, "reason", "Synced")
+			continue
+		}
 
 		if !cluster.DeletionTimestamp.IsZero() {
 			logger.Info("skipping cluster", "cluster", cluster.Name, "namespace", req.Namespace, "reason", "Deleted")
@@ -122,10 +129,11 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		if !conditions.IsReady(&cluster) {
 			logger.Info("skipping cluster", "cluster", cluster.Name, "namespace", req.Namespace, "reason", "NotReady")
+			requeue = true
 			continue
 		}
 
-		clusterName := types.NamespacedName{Name: cluster.GetName(), Namespace: cluster.GetNamespace()}
+		clusterName := client.ObjectKeyFromObject(&cluster)
 		clusterClient, err := clientForCluster(ctx, r.Client, r.configParser, clusterName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -148,24 +156,44 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			continue
 		}
 
-		if err := r.sync(ctx, secret, clusterClient); err != nil {
+		if err := r.syncSecret(ctx, secret, clusterClient, secretSync.Spec.TargetNamespace); err != nil {
 			logger.Error(err, "failed to sync secret", "cluster", cluster.Name, "secret", secret.Name, "namespace", req.Namespace)
 			continue
 		}
+
+		secretSync.Status.SetClusterSecretVersion(cluster.Name, secret.Name, secret.ResourceVersion)
+	}
+
+	if err := r.Status().Patch(ctx, &secretSync, patch); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
 	}
 
 	if requeue {
 		return ctrl.Result{RequeueAfter: clusterReadinessRequeue}, nil
 	}
+
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretSyncReconciler) sync(ctx context.Context, secret v1.Secret, cl client.Client) error {
+// syncSecret sync secret from management cluster to leaf cluster
+func (r *SecretSyncReconciler) syncSecret(ctx context.Context, secret v1.Secret, cl client.Client, targetNamespace string) error {
+	namespace := secret.Namespace
+	if targetNamespace != "" {
+		namespace = targetNamespace
+	}
+
+	if err := r.createNamespace(ctx, cl, namespace); err != nil {
+		return err
+	}
+
 	newSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:         secret.Name,
 			GenerateName: secret.GenerateName,
-			Namespace:    secret.Namespace,
+			Namespace:    namespace,
 			Labels:       secret.Labels,
 			Annotations:  secret.Annotations,
 		},
@@ -181,6 +209,20 @@ func (r *SecretSyncReconciler) sync(ctx context.Context, secret v1.Secret, cl cl
 			}
 		} else {
 			return fmt.Errorf("failed to create secret %w", err)
+		}
+	}
+
+	return nil
+}
+
+// createNamespace create secret's namespace if it doesn't exists
+func (r *SecretSyncReconciler) createNamespace(ctx context.Context, cl client.Client, name string) error {
+	namespace := v1.Namespace{}
+	namespace.SetName(name)
+
+	if err := cl.Create(ctx, &namespace); err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create namespace %s, error: %w", name, err)
 		}
 	}
 
@@ -215,6 +257,7 @@ func (r *SecretSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// clusterHandler handler for GitOpsCluster objects
 func (r *SecretSyncReconciler) clusterHandler(obj client.Object) []ctrl.Request {
 	cluster, ok := obj.(*gitopsv1alpha1.GitopsCluster)
 	if !ok {
@@ -223,6 +266,7 @@ func (r *SecretSyncReconciler) clusterHandler(obj client.Object) []ctrl.Request 
 
 	var resources capiv1alpha2.SecretSyncList
 	if err := r.Client.List(context.Background(), &resources, client.InNamespace(cluster.Namespace)); err != nil {
+		log.Log.Error(err, "failed to list secret syncs")
 		return nil
 	}
 
@@ -241,6 +285,7 @@ func (r *SecretSyncReconciler) clusterHandler(obj client.Object) []ctrl.Request 
 	return result
 }
 
+// clusterHandler handler for Secret objects
 func (r *SecretSyncReconciler) secretHandler(obj client.Object) []ctrl.Request {
 	opts := client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(secretRefIndexKey, obj.GetName()),
