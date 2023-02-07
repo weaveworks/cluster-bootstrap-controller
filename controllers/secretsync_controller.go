@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/fluxcd/pkg/runtime/conditions"
+	"github.com/fluxcd/pkg/runtime/patch"
 	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -68,7 +69,6 @@ func NewSecretSyncReconciler(c client.Client, s *runtime.Scheme) *SecretSyncReco
 //+kubebuilder:rbac:groups=capi.weave.works,resources=secretsyncs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=capi.weave.works,resources=secretsyncs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=capi.weave.works,resources=secretsyncs/finalizers,verbs=update
-//+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="gitops.weave.works",resources=gitopsclusters,verbs=get;watch;list;patch
@@ -97,7 +97,7 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	selector, err := metav1.LabelSelectorAsSelector(&secretSync.Spec.ClusterSelector)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("unable to convert selector: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to convert selector: %w", err)
 	}
 
 	if selector.Empty() {
@@ -112,23 +112,26 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	var requeue bool
 
-	patch := client.MergeFrom(secretSync.DeepCopy())
+	patchHelper, err := patch.NewHelper(&secretSync, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	for i := range clusters.Items {
 		cluster := clusters.Items[i]
 
-		if secretSync.Status.GetClusterSecretVersion(cluster.Name, secret.Name) == secret.ResourceVersion {
-			logger.Info("skipping cluster", "cluster", cluster.Name, "namespace", req.Namespace, "reason", "Synced")
+		if secretSync.Status.GetClusterSecretVersion(cluster.Name) == secret.ResourceVersion {
+			logger.Info("skipping cluster", "cluster", cluster.Name, "reason", "Synced")
 			continue
 		}
 
 		if !cluster.DeletionTimestamp.IsZero() {
-			logger.Info("skipping cluster", "cluster", cluster.Name, "namespace", req.Namespace, "reason", "Deleted")
+			logger.Info("skipping cluster", "cluster", cluster.Name, "reason", "Deleted")
 			continue
 		}
 
 		if !conditions.IsReady(&cluster) {
-			logger.Info("skipping cluster", "cluster", cluster.Name, "namespace", req.Namespace, "reason", "NotReady")
+			logger.Info("skipping cluster", "cluster", cluster.Name, "reason", "NotReady")
 			requeue = true
 			continue
 		}
@@ -137,7 +140,7 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		clusterClient, err := clientForCluster(ctx, r.Client, r.configParser, clusterName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				logger.Info("waiting for cluster access secret to be available", "cluster", cluster.Name, "namespace", req.Namespace)
+				logger.Info("waiting for cluster access secret to be available", "cluster", cluster.Name)
 				requeue = true
 				continue
 			}
@@ -146,28 +149,25 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		ready, err := IsControlPlaneReady(ctx, clusterClient)
 		if err != nil {
-			logger.Error(err, "failed to check readiness of cluster", "cluster", cluster.Name, "namespace", req.Namespace)
+			logger.Error(err, "failed to check readiness of cluster", "cluster", cluster.Name)
 			continue
 		}
 
 		if !ready {
-			logger.Info("waiting for control plane to be ready", "cluster", cluster.Name, "namespace", req.Namespace)
+			logger.Info("waiting for control plane to be ready", "cluster", cluster.Name)
 			requeue = true
 			continue
 		}
 
 		if err := r.syncSecret(ctx, secret, clusterClient, secretSync.Spec.TargetNamespace); err != nil {
-			logger.Error(err, "failed to sync secret", "cluster", cluster.Name, "secret", secret.Name, "namespace", req.Namespace)
+			logger.Error(err, "failed to sync secret", "cluster", cluster.Name, "secret", secret.Name)
 			continue
 		}
 
-		secretSync.Status.SetClusterSecretVersion(cluster.Name, secret.Name, secret.ResourceVersion)
+		secretSync.Status.SetClusterSecretVersion(cluster.Name, secret.ResourceVersion)
 	}
 
-	if err := r.Status().Patch(ctx, &secretSync, patch); err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
+	if err := patchHelper.Patch(ctx, &secretSync); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -205,10 +205,10 @@ func (r *SecretSyncReconciler) syncSecret(ctx context.Context, secret v1.Secret,
 	if err := cl.Create(ctx, &newSecret); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			if err := cl.Update(ctx, &newSecret); err != nil {
-				return fmt.Errorf("failed to update secret %w", err)
+				return fmt.Errorf("failed to update secret: %w", err)
 			}
 		} else {
-			return fmt.Errorf("failed to create secret %w", err)
+			return fmt.Errorf("failed to create secret: %w", err)
 		}
 	}
 
@@ -222,7 +222,7 @@ func (r *SecretSyncReconciler) createNamespace(ctx context.Context, cl client.Cl
 
 	if err := cl.Create(ctx, &namespace); err != nil {
 		if !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create namespace %s, error: %w", name, err)
+			return fmt.Errorf("failed to create namespace %s: %w", name, err)
 		}
 	}
 

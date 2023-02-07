@@ -80,7 +80,7 @@ func TestSecretSync(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if _, ok := secretSync.Status.SecretVersions[fmt.Sprintf("%s/%s", clusterA.Name, secretA.Name)]; !ok {
+		if _, ok := secretSync.Status.SecretVersions[clusterA.Name]; !ok {
 			t.Fatalf("secretsync a status is not updated")
 		}
 
@@ -108,7 +108,7 @@ func TestSecretSync(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if _, ok := secretSync.Status.SecretVersions[fmt.Sprintf("%s/%s", clusterB.Name, secretB.Name)]; !ok {
+		if _, ok := secretSync.Status.SecretVersions[clusterB.Name]; !ok {
 			t.Fatalf("secretsync a status is not updated")
 		}
 

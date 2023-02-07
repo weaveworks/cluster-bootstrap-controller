@@ -1,36 +1,41 @@
 package v1alpha2
 
 import (
-	"fmt"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// SecretSyncSpec
 type SecretSyncSpec struct {
-	ClusterSelector metav1.LabelSelector    `json:"clusterSelector"`
-	SecretRef       v1.LocalObjectReference `json:"secretRef"`
+	// ClusterSelector specifies the label selector to match clusters with
+	ClusterSelector metav1.LabelSelector `json:"clusterSelector"`
+	// SecretRef specifies the Secret to be bootstrapped to the matched clusters
+	// Secret must be in the same namespace of the SecretSync object
+	SecretRef v1.LocalObjectReference `json:"secretRef"`
+	// TargetNamespace specifies the namespace which the secret should be bootstrapped in
+	// The default value is the namespace of the referenced secret
 	//+optional
 	TargetNamespace string `json:"targetNamespace"`
 }
 
+// SecretSyncStatus secretsync object status
 type SecretSyncStatus struct {
+	// SecretVersions a map contains the ResourceVersion of the secret of each cluster
+	// Cluster name is the key and secret's ResourceVersion is the value
 	SecretVersions map[string]string `json:"versions"`
 }
 
-// SetClusterSecretVersion set secret's ResourceVersion
-func (s *SecretSyncStatus) SetClusterSecretVersion(cluster, secret, version string) {
+// SetClusterSecretVersion sets the latest secret version of the given cluster
+func (s *SecretSyncStatus) SetClusterSecretVersion(cluster, version string) {
 	if s.SecretVersions == nil {
 		s.SecretVersions = make(map[string]string)
 	}
-	key := fmt.Sprintf("%s/%s", cluster, secret)
-	s.SecretVersions[key] = version
+	s.SecretVersions[cluster] = version
 }
 
-// GetClusterSecretVersion get secret's ResourceVersion
-func (s *SecretSyncStatus) GetClusterSecretVersion(cluster, secret string) string {
-	key := fmt.Sprintf("%s/%s", cluster, secret)
-	return s.SecretVersions[key]
+// GetClusterSecretVersion returns secret's ResourceVersion of the given cluster
+func (s *SecretSyncStatus) GetClusterSecretVersion(cluster string) string {
+	return s.SecretVersions[cluster]
 }
 
 //+kubebuilder:object:root=true

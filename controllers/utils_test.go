@@ -3,7 +3,6 @@ package controllers
 import (
 	"testing"
 
-	"github.com/weaveworks/cluster-bootstrap-controller/test"
 	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
+	"github.com/weaveworks/cluster-bootstrap-controller/test"
 )
 
 const (
