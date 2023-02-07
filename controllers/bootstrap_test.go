@@ -12,19 +12,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ptrutils "k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
 	"github.com/weaveworks/cluster-bootstrap-controller/test"
-)
-
-const (
-	testConfigName  = "test-config"
-	testClusterName = "test-cluster"
-	testNamespace   = "testing"
 )
 
 func Test_bootstrapClusterWithConfig(t *testing.T) {
@@ -141,20 +134,6 @@ func Test_bootstrapClusterWithConfig_sets_job_ttl(t *testing.T) {
 	}
 }
 
-func makeTestCluster(opts ...func(*gitopsv1alpha1.GitopsCluster)) *gitopsv1alpha1.GitopsCluster {
-	c := &gitopsv1alpha1.GitopsCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      testClusterName,
-			Namespace: testNamespace,
-		},
-		Spec: gitopsv1alpha1.GitopsClusterSpec{},
-	}
-	for _, o := range opts {
-		o(c)
-	}
-	return c
-}
-
 func makeTestClusterBootstrapConfig(opts ...func(*capiv1alpha2.ClusterBootstrapConfig)) *capiv1alpha2.ClusterBootstrapConfig {
 	bc := &capiv1alpha2.ClusterBootstrapConfig{
 		ObjectMeta: metav1.ObjectMeta{
@@ -197,30 +176,4 @@ func makeTestClusterBootstrapConfig(opts ...func(*capiv1alpha2.ClusterBootstrapC
 		o(bc)
 	}
 	return bc
-}
-
-func makeTestClient(t *testing.T, objs ...runtime.Object) client.Client {
-	_, client := makeTestClientAndScheme(t, objs...)
-	return client
-}
-
-func makeTestClientAndScheme(t *testing.T, objs ...runtime.Object) (*runtime.Scheme, client.Client) {
-	t.Helper()
-	s := runtime.NewScheme()
-	test.AssertNoError(t, clientgoscheme.AddToScheme(s))
-	test.AssertNoError(t, capiv1alpha2.AddToScheme(s))
-	test.AssertNoError(t, batchv1.AddToScheme(s))
-	test.AssertNoError(t, gitopsv1alpha1.AddToScheme(s))
-	return s, fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build()
-}
-
-func makeTestVolume(name, secretName string) corev1.Volume {
-	return corev1.Volume{
-		Name: name,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: secretName,
-			},
-		},
-	}
 }
