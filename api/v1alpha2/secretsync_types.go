@@ -7,7 +7,10 @@ import (
 
 // SecretSyncSpec
 type SecretSyncSpec struct {
-	// ClusterSelector specifies the label selector to match clusters with
+	// Label selector for Clusters. The Clusters that are
+	// selected by this will be the ones affected by this SecretSync.
+	// It must match the Cluster labels. This field is immutable.
+	// Label selector cannot be empty.
 	ClusterSelector metav1.LabelSelector `json:"clusterSelector"`
 	// SecretRef specifies the Secret to be bootstrapped to the matched clusters
 	// Secret must be in the same namespace of the SecretSync object
@@ -15,7 +18,7 @@ type SecretSyncSpec struct {
 	// TargetNamespace specifies the namespace which the secret should be bootstrapped in
 	// The default value is the namespace of the referenced secret
 	//+optional
-	TargetNamespace string `json:"targetNamespace"`
+	TargetNamespace string `json:"targetNamespace,omitempty"`
 }
 
 // SecretSyncStatus secretsync object status

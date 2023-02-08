@@ -168,7 +168,7 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if err := patchHelper.Patch(ctx, &secretSync); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to patch object status: %w", err)
 	}
 
 	if requeue {
