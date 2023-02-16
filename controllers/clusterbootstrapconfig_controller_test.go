@@ -101,7 +101,11 @@ func TestReconcile_when_cluster_ready(t *testing.T) {
 	readyNode := makeNode(map[string]string{
 		"node-role.kubernetes.io/control-plane": "",
 	}, corev1.NodeCondition{
-		Type: "Ready", Status: "True", LastHeartbeatTime: metav1.Now(), LastTransitionTime: metav1.Now(), Reason: "KubeletReady", Message: "kubelet is posting ready status"})
+		Type: "Ready", Status: "True",
+		LastHeartbeatTime:  metav1.Now(),
+		LastTransitionTime: metav1.Now(),
+		Reason:             "KubeletReady",
+		Message:            "kubelet is posting ready status"})
 
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
@@ -196,7 +200,6 @@ func TestReconcile_when_cluster_ready_bootstrapped_with_different_config(t *test
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
 		c.ObjectMeta.Annotations = map[string]string{
-			capiv1alpha1.BootstrappedAnnotation:     "true",
 			capiv1alpha1.BootstrapConfigsAnnotation: "unknown/unknown",
 		}
 		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
@@ -357,6 +360,54 @@ func TestReconcile_when_cluster_ready_bootstrapped_with_multiple_config(t *testi
 		}
 		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
+	secret := makeTestSecret(types.NamespacedName{
+		Name:      cl.GetName() + "-kubeconfig",
+		Namespace: cl.GetNamespace(),
+	}, map[string][]byte{"value": []byte("testing")})
+	// This cheats by using the local client as the remote client to simplify
+	// getting the value from the remote client.
+	reconciler := makeTestReconciler(t, bc, cl, secret, readyNode)
+	reconciler.configParser = func(b []byte) (client.Client, error) {
+		return reconciler.Client, nil
+	}
+
+	result, err := reconciler.Reconcile(context.TODO(), ctrl.Request{NamespacedName: types.NamespacedName{
+		Name:      bc.GetName(),
+		Namespace: bc.GetNamespace(),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsZero() {
+		t.Fatalf("want empty result, got %v", result)
+	}
+	var jobs batchv1.JobList
+	if err := reconciler.List(context.TODO(), &jobs, client.InNamespace(testNamespace)); err != nil {
+		t.Fatal(err)
+	}
+	if l := len(jobs.Items); l != 0 {
+		t.Fatalf("found %d jobs, want %d", l, 0)
+	}
+}
+
+func TestReconcile_when_cluster_ready_bootstrapped_with_bootstrapped_annotation(t *testing.T) {
+	// If the old annotation exists, don't rebootstrap even with newer configs.
+	bc := makeTestClusterBootstrapConfig()
+	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
+		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
+		c.ObjectMeta.Annotations = map[string]string{
+			capiv1alpha1.BootstrappedAnnotation: "true",
+		}
+		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
+	})
+	readyNode := makeNode(map[string]string{
+		"node-role.kubernetes.io/control-plane": "",
+	}, corev1.NodeCondition{
+		Type: "Ready", Status: "True",
+		LastHeartbeatTime:  metav1.Now(),
+		LastTransitionTime: metav1.Now(),
+		Reason:             "KubeletReady",
+		Message:            "kubelet is posting ready status"})
 	secret := makeTestSecret(types.NamespacedName{
 		Name:      cl.GetName() + "-kubeconfig",
 		Namespace: cl.GetNamespace(),

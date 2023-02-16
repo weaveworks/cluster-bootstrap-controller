@@ -112,7 +112,6 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 		mergePatch, err := json.Marshal(map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"annotations": map[string]interface{}{
-					capiv1alpha1.BootstrappedAnnotation:     "yes",
 					capiv1alpha1.BootstrapConfigsAnnotation: appendClusterConfigToBootstrappedList(clusterBootstrapConfig, cluster),
 				},
 			},
@@ -179,9 +178,11 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 		}
 
 		if metav1.HasAnnotation(cluster.ObjectMeta, capiv1alpha1.BootstrappedAnnotation) {
-			if alreadyBootstrappedWithConfig(cluster, config) {
-				continue
-			}
+			continue
+		}
+
+		if alreadyBootstrappedWithConfig(cluster, config) {
+			continue
 		}
 		if cluster.DeletionTimestamp.IsZero() {
 			clusters = append(clusters, cluster)
