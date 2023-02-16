@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	"github.com/weaveworks/cluster-bootstrap-controller/test"
 )
 
@@ -114,7 +114,7 @@ func makeTestPodSpecWithVolumes(volumes ...corev1.Volume) corev1.PodSpec {
 }
 
 func Test_bootstrapClusterWithConfig_sets_job_ttl(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(cfg *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(cfg *capiv1alpha1.ClusterBootstrapConfig) {
 		cfg.Spec.Template.TTLSecondsAfterFinished = ptrutils.Int32Ptr(66)
 	})
 	cl := makeTestCluster()
@@ -134,19 +134,19 @@ func Test_bootstrapClusterWithConfig_sets_job_ttl(t *testing.T) {
 	}
 }
 
-func makeTestClusterBootstrapConfig(opts ...func(*capiv1alpha2.ClusterBootstrapConfig)) *capiv1alpha2.ClusterBootstrapConfig {
-	bc := &capiv1alpha2.ClusterBootstrapConfig{
+func makeTestClusterBootstrapConfig(opts ...func(*capiv1alpha1.ClusterBootstrapConfig)) *capiv1alpha1.ClusterBootstrapConfig {
+	bc := &capiv1alpha1.ClusterBootstrapConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testConfigName,
 			Namespace: testNamespace,
 		},
-		Spec: capiv1alpha2.ClusterBootstrapConfigSpec{
+		Spec: capiv1alpha1.ClusterBootstrapConfigSpec{
 			ClusterSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"testing": "label",
 				},
 			},
-			Template: capiv1alpha2.JobTemplate{
+			Template: capiv1alpha1.JobTemplate{
 				GenerateName: "setup-something-",
 				BackoffLimit: ptrutils.Int32Ptr(13),
 				Spec: corev1.PodSpec{
@@ -175,5 +175,6 @@ func makeTestClusterBootstrapConfig(opts ...func(*capiv1alpha2.ClusterBootstrapC
 	for _, o := range opts {
 		o(bc)
 	}
+
 	return bc
 }

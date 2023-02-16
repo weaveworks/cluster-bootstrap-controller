@@ -17,8 +17,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	capialpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
-	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	"github.com/weaveworks/cluster-bootstrap-controller/test"
 	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 )
@@ -26,7 +25,7 @@ import (
 const testWaitDuration = time.Second * 55
 
 func TestReconcile_when_cluster_not_ready(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 		c.Spec.ClusterReadinessBackoff = &metav1.Duration{Duration: testWaitDuration}
 
@@ -66,7 +65,7 @@ func TestReconcile_when_cluster_not_ready(t *testing.T) {
 }
 
 func TestReconcile_when_cluster_secret_not_available(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 	})
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
@@ -96,7 +95,7 @@ func TestReconcile_when_cluster_secret_not_available(t *testing.T) {
 }
 
 func TestReconcile_when_cluster_ready(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 	})
 	readyNode := makeNode(map[string]string{
@@ -139,7 +138,7 @@ func TestReconcile_when_cluster_ready(t *testing.T) {
 }
 
 func TestReconcile_when_cluster_ready_bootstrapped_with_same_config(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 	})
 	readyNode := makeNode(map[string]string{
@@ -151,8 +150,8 @@ func TestReconcile_when_cluster_ready_bootstrapped_with_same_config(t *testing.T
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
 		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 		c.ObjectMeta.Annotations = map[string]string{
-			capiv1alpha2.BootstrappedAnnotation:     "true",
-			capiv1alpha2.BootstrapConfigsAnnotation: fmt.Sprintf("%s/%s", bc.Namespace, bc.Name),
+			capiv1alpha1.BootstrappedAnnotation:     "true",
+			capiv1alpha1.BootstrapConfigsAnnotation: fmt.Sprintf("%s/%s", bc.Namespace, bc.Name),
 		}
 	})
 	secret := makeTestSecret(types.NamespacedName{
@@ -186,7 +185,7 @@ func TestReconcile_when_cluster_ready_bootstrapped_with_same_config(t *testing.T
 }
 
 func TestReconcile_when_cluster_ready_bootstrapped_with_different_config(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 	})
 	readyNode := makeNode(map[string]string{
@@ -197,8 +196,8 @@ func TestReconcile_when_cluster_ready_bootstrapped_with_different_config(t *test
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
 		c.ObjectMeta.Annotations = map[string]string{
-			capiv1alpha2.BootstrappedAnnotation:     "true",
-			capiv1alpha2.BootstrapConfigsAnnotation: "unknown/unknown",
+			capiv1alpha1.BootstrappedAnnotation:     "true",
+			capiv1alpha1.BootstrapConfigsAnnotation: "unknown/unknown",
 		}
 		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
@@ -233,7 +232,7 @@ func TestReconcile_when_cluster_ready_bootstrapped_with_different_config(t *test
 }
 
 func TestReconcile_when_cluster_provisioned(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterProvisioned = true
 	})
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
@@ -271,7 +270,7 @@ func TestReconcile_when_cluster_provisioned(t *testing.T) {
 }
 
 func TestReconcile_when_cluster_not_provisioned(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterProvisioned = true
 	})
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
@@ -309,7 +308,7 @@ func TestReconcile_when_cluster_not_provisioned(t *testing.T) {
 }
 
 func TestReconcile_when_cluster_no_matching_labels(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 	})
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
@@ -342,7 +341,7 @@ func TestReconcile_when_cluster_ready_bootstrapped_with_multiple_config(t *testi
 	// Multiple configs can bootstrap the same cluster
 	// If the reconciled cluster is in that list (anywhere) then we don't create
 	// jobs.
-	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 	})
 	readyNode := makeNode(map[string]string{
@@ -353,8 +352,8 @@ func TestReconcile_when_cluster_ready_bootstrapped_with_multiple_config(t *testi
 	cl := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
 		c.ObjectMeta.Labels = bc.Spec.ClusterSelector.MatchLabels
 		c.ObjectMeta.Annotations = map[string]string{
-			capialpha2.BootstrappedAnnotation:     "true",
-			capialpha2.BootstrapConfigsAnnotation: fmt.Sprintf("%s,%s/%s", "unknown/unknown", bc.GetNamespace(), bc.GetName()),
+			capiv1alpha1.BootstrappedAnnotation:     "true",
+			capiv1alpha1.BootstrapConfigsAnnotation: fmt.Sprintf("%s,%s/%s", "unknown/unknown", bc.GetNamespace(), bc.GetName()),
 		}
 		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
@@ -391,7 +390,7 @@ func TestReconcile_when_cluster_ready_bootstrapped_with_multiple_config(t *testi
 func TestReconcile_when_empty_label_selector(t *testing.T) {
 	// When the label selector is empty, we don't want any jobs created, rather
 	// than a job for all clusters.
-	bc := makeTestClusterBootstrapConfig(func(c *capialpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 		c.Spec.ClusterSelector = metav1.LabelSelector{
 			MatchLabels: map[string]string{},
@@ -425,7 +424,7 @@ func TestReconcile_when_empty_label_selector(t *testing.T) {
 }
 
 func TestReconcile_when_cluster_ready_and_old_label(t *testing.T) {
-	bc := makeTestClusterBootstrapConfig(func(c *capialpha2.ClusterBootstrapConfig) {
+	bc := makeTestClusterBootstrapConfig(func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.RequireClusterReady = true
 	})
 	readyNode := makeNode(map[string]string{

@@ -3,7 +3,7 @@ package controllers
 import (
 	"testing"
 
-	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
+	clustersv1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	"github.com/weaveworks/cluster-bootstrap-controller/test"
 )
 
@@ -23,13 +23,13 @@ const (
 	testNamespace   = "testing"
 )
 
-func makeTestCluster(opts ...func(*gitopsv1alpha1.GitopsCluster)) *gitopsv1alpha1.GitopsCluster {
-	c := &gitopsv1alpha1.GitopsCluster{
+func makeTestCluster(opts ...func(*clustersv1.GitopsCluster)) *clustersv1.GitopsCluster {
+	c := &clustersv1.GitopsCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testClusterName,
 			Namespace: testNamespace,
 		},
-		Spec: gitopsv1alpha1.GitopsClusterSpec{},
+		Spec: clustersv1.GitopsClusterSpec{},
 	}
 	for _, o := range opts {
 		o(c)
@@ -46,7 +46,7 @@ func makeReadyCondition() metav1.Condition {
 
 func makeClusterProvisionedCondition() metav1.Condition {
 	return metav1.Condition{
-		Type:   gitopsv1alpha1.ClusterProvisionedCondition,
+		Type:   clustersv1.ClusterProvisionedCondition,
 		Status: metav1.ConditionTrue,
 	}
 }
@@ -82,9 +82,9 @@ func makeTestClientAndScheme(t *testing.T, objs ...runtime.Object) (*runtime.Sch
 	t.Helper()
 	s := runtime.NewScheme()
 	test.AssertNoError(t, clientgoscheme.AddToScheme(s))
-	test.AssertNoError(t, capiv1alpha2.AddToScheme(s))
+	test.AssertNoError(t, capiv1alpha1.AddToScheme(s))
 	test.AssertNoError(t, batchv1.AddToScheme(s))
-	test.AssertNoError(t, gitopsv1alpha1.AddToScheme(s))
+	test.AssertNoError(t, clustersv1.AddToScheme(s))
 	return s, fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build()
 }
 

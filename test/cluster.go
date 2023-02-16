@@ -5,14 +5,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ptrutils "k8s.io/utils/pointer"
 
-	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 )
 
 // MatchLabels is an option func for MakeClusterBootstrapConfig to set the labels on
 // the new config.
-func MatchLabels(labels map[string]string) func(*capiv1alpha2.ClusterBootstrapConfig) {
-	return func(c *capiv1alpha2.ClusterBootstrapConfig) {
+func MatchLabels(labels map[string]string) func(*capiv1alpha1.ClusterBootstrapConfig) {
+	return func(c *capiv1alpha1.ClusterBootstrapConfig) {
 		c.Spec.ClusterSelector = metav1.LabelSelector{
 			MatchLabels: labels,
 		}
@@ -21,14 +21,14 @@ func MatchLabels(labels map[string]string) func(*capiv1alpha2.ClusterBootstrapCo
 
 // MakeClusterBootstrapConfig allocates and returns a new
 // ClusterBootstrapConfig value.
-func MakeClusterBootstrapConfig(name, namespace string, opts ...func(*capiv1alpha2.ClusterBootstrapConfig)) *capiv1alpha2.ClusterBootstrapConfig {
-	bc := &capiv1alpha2.ClusterBootstrapConfig{
+func MakeClusterBootstrapConfig(name, namespace string, opts ...func(*capiv1alpha1.ClusterBootstrapConfig)) *capiv1alpha1.ClusterBootstrapConfig {
+	bc := &capiv1alpha1.ClusterBootstrapConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: capiv1alpha2.ClusterBootstrapConfigSpec{
-			Template: capiv1alpha2.JobTemplate{
+		Spec: capiv1alpha1.ClusterBootstrapConfigSpec{
+			Template: capiv1alpha1.JobTemplate{
 				GenerateName: "setup-something-",
 				BackoffLimit: ptrutils.Int32Ptr(13),
 				Spec: corev1.PodSpec{
