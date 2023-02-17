@@ -40,8 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
-	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 )
 
 const (
@@ -76,7 +75,7 @@ func NewSecretSyncReconciler(c client.Client, s *runtime.Scheme) *SecretSyncReco
 func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	var secretSync capiv1alpha2.SecretSync
+	var secretSync capiv1alpha1.SecretSync
 	if err := r.Client.Get(ctx, req.NamespacedName, &secretSync); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -231,8 +230,8 @@ func (r *SecretSyncReconciler) createNamespace(ctx context.Context, cl client.Cl
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SecretSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha2.SecretSync{}, secretRefIndexKey, func(obj client.Object) []string {
-		secretSync, ok := obj.(*v1alpha2.SecretSync)
+	err := mgr.GetFieldIndexer().IndexField(context.Background(), &capiv1alpha1.SecretSync{}, secretRefIndexKey, func(obj client.Object) []string {
+		secretSync, ok := obj.(*capiv1alpha1.SecretSync)
 		if !ok {
 			return nil
 		}
@@ -244,7 +243,7 @@ func (r *SecretSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&capiv1alpha2.SecretSync{}).
+		For(&capiv1alpha1.SecretSync{}).
 		Watches(
 			&source.Kind{Type: &gitopsv1alpha1.GitopsCluster{}},
 			handler.EnqueueRequestsFromMapFunc(r.clusterHandler),
@@ -264,7 +263,7 @@ func (r *SecretSyncReconciler) clusterHandler(obj client.Object) []ctrl.Request 
 		return nil
 	}
 
-	var resources capiv1alpha2.SecretSyncList
+	var resources capiv1alpha1.SecretSyncList
 	if err := r.Client.List(context.Background(), &resources, client.InNamespace(cluster.Namespace)); err != nil {
 		log.Log.Error(err, "failed to list secret syncs")
 		return nil
@@ -292,7 +291,7 @@ func (r *SecretSyncReconciler) secretHandler(obj client.Object) []ctrl.Request {
 		Namespace:     obj.GetNamespace(),
 	}
 
-	var resources v1alpha2.SecretSyncList
+	var resources capiv1alpha1.SecretSyncList
 	ctx := context.Background()
 	if err := r.List(ctx, &resources, &opts); err != nil {
 		log.Log.Error(err, "failed to list secret syncs")

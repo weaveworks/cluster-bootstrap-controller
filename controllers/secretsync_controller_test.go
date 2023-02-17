@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"testing"
 
-	capiv1alpha2 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha2"
-	gitopsv1alpha1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
+	clustersv1 "github.com/weaveworks/cluster-controller/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	capiv1alpha1 "github.com/weaveworks/cluster-bootstrap-controller/api/v1alpha1"
 )
 
 func TestSecretSync(t *testing.T) {
@@ -75,7 +76,7 @@ func TestSecretSync(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var secretSync capiv1alpha2.SecretSync
+		var secretSync capiv1alpha1.SecretSync
 		if err := cl.Get(context.TODO(), client.ObjectKeyFromObject(secretSyncA), &secretSync); err != nil {
 			t.Fatal(err)
 		}
@@ -103,7 +104,7 @@ func TestSecretSync(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var secretSync capiv1alpha2.SecretSync
+		var secretSync capiv1alpha1.SecretSync
 		if err := cl.Get(context.TODO(), client.ObjectKeyFromObject(secretSyncB), &secretSync); err != nil {
 			t.Fatal(err)
 		}
@@ -141,13 +142,13 @@ func TestSecretSync(t *testing.T) {
 	})
 }
 
-func makeSecretSync(name, namespace, secretName, targetNamespace string, selector map[string]string) *capiv1alpha2.SecretSync {
-	return &capiv1alpha2.SecretSync{
+func makeSecretSync(name, namespace, secretName, targetNamespace string, selector map[string]string) *capiv1alpha1.SecretSync {
+	return &capiv1alpha1.SecretSync{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: capiv1alpha2.SecretSyncSpec{
+		Spec: capiv1alpha1.SecretSyncSpec{
 			ClusterSelector: metav1.LabelSelector{
 				MatchLabels: selector,
 			},
@@ -159,8 +160,8 @@ func makeSecretSync(name, namespace, secretName, targetNamespace string, selecto
 	}
 }
 
-func makeReadyTestCluster(t *testing.T, key string) (*gitopsv1alpha1.GitopsCluster, *v1.Secret, client.Client) {
-	cluster := makeTestCluster(func(c *gitopsv1alpha1.GitopsCluster) {
+func makeReadyTestCluster(t *testing.T, key string) (*clustersv1.GitopsCluster, *v1.Secret, client.Client) {
+	cluster := makeTestCluster(func(c *clustersv1.GitopsCluster) {
 		c.Name = fmt.Sprintf("cluster-%s", key)
 		c.Namespace = corev1.NamespaceDefault
 		c.SetLabels(map[string]string{

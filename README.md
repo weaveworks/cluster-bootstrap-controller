@@ -73,7 +73,7 @@ Secrets will be re-synced to leaf clusters when updated
 ### Example
 
 ```yaml
-apiVersion: capi.weave.works/v1alpha2
+apiVersion: capi.weave.works/v1alpha1
 kind: SecretSync
 metadata:
   name: my-dev-secret-syncer
