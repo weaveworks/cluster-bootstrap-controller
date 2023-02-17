@@ -177,6 +177,8 @@ func (r *ClusterBootstrapConfigReconciler) getClustersBySelector(ctx context.Con
 			}
 		}
 
+                 // Check for the legacy bootstrapped annotation and skip bootstrapping if present.
+                 // We don't add this anymore but might be present on existing clusters bootstrapped from older versions.
 		if metav1.HasAnnotation(cluster.ObjectMeta, capiv1alpha1.BootstrappedAnnotation) {
 			continue
 		}
