@@ -521,6 +521,7 @@ func TestReconcile_when_cluster_ready_and_old_label(t *testing.T) {
 func Test_kubeConfigBytesToClient_with_valid_kubeconfig(t *testing.T) {
 	// Fake the server out.
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, `{"apiVersion":"", "kind":""}`)
 	}))
 	defer ts.Close()
@@ -573,7 +574,7 @@ func Test_kubeConfigBytesToClient_with_bad_kubeconfig_server(t *testing.T) {
 	}
 
 	_, err = kubeConfigBytesToClient(b)
-	test.AssertErrorMatch(t, "failed to create RESTMapper from config: couldn't get version/kind", err)
+	test.AssertErrorMatch(t, "failed to create RESTMapper from config: Unknown discovery response content-type: text/plain", err)
 }
 
 func Test_kubeConfigBytesToClient_with_invalidkubeconfig(t *testing.T) {
