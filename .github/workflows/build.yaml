@@ -25,6 +25,15 @@ jobs:
         GITHUB_BUILD_USERNAME: ${{ secrets.BUILD_BOT_USER }}
         GITHUB_BUILD_TOKEN: ${{ secrets.BUILD_BOT_PERSONAL_ACCESS_TOKEN }}
       run: git config --global url."https://${GITHUB_BUILD_USERNAME}:${GITHUB_BUILD_TOKEN}@github.com".insteadOf "https://github.com"
+    - name: Build | Test
+      run: |
+        go version
+        make test
+    - name: Publish | Login to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Build docker image
       env:
         GITHUB_BUILD_USERNAME: ${{ secrets.BUILD_BOT_USER }}
