@@ -130,7 +130,7 @@ controller-gen: ## Download controller-gen locally if necessary.
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v4.5.7)
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.7)
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
@@ -218,3 +218,11 @@ controllers/testdata/crds/cluster.x-k8s.io_clusters.yaml: controllers/testdata/c
 	curl https://raw.githubusercontent.com/kubernetes-sigs/cluster-api/v1.0.0/config/crd/bases/cluster.x-k8s.io_clusters.yaml -o controllers/testdata/crds/cluster.x-k8s.io_clusters.yaml
 
 download-crds: controllers/testdata/crds/cluster.x-k8s.io_clusters.yaml
+
+HELMIFY = $(shell pwd)/bin/helmify
+helmify:
+	$(call go-get-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify@latest)
+
+helm: manifests kustomize helmify
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | $(HELMIFY) -crd-dir ../weave-gitops-enterprise/charts/cluster-bootstrap-controller
