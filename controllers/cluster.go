@@ -23,6 +23,8 @@ const (
 
 // IsControlPlaneReady takes a client connected to a cluster and reports whether or
 // not the control-plane for the cluster is "ready".
+//
+// WARNING: This does not work for "managed clusters" where the control-plane is not available.
 func IsControlPlaneReady(ctx context.Context, cl client.Client) (bool, error) {
 	logger := log.FromContext(ctx)
 	readiness := []bool{}
@@ -48,6 +50,7 @@ func IsControlPlaneReady(ctx context.Context, cl client.Client) (bool, error) {
 		}
 		return true
 	}
+
 	logger.Info("readiness", "len", len(readiness), "is-ready", isReady(readiness))
 
 	// If we have no statuses, then we really don't know if we're ready or not.

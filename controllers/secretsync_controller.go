@@ -146,18 +146,6 @@ func (r *SecretSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return ctrl.Result{}, fmt.Errorf("failed to create client for cluster %s: %w", clusterName, err)
 		}
 
-		ready, err := IsControlPlaneReady(ctx, clusterClient)
-		if err != nil {
-			logger.Error(err, "failed to check readiness of cluster", "cluster", cluster.Name)
-			continue
-		}
-
-		if !ready {
-			logger.Info("waiting for control plane to be ready", "cluster", cluster.Name)
-			requeue = true
-			continue
-		}
-
 		if err := r.syncSecret(ctx, secret, clusterClient, secretSync.Spec.TargetNamespace); err != nil {
 			logger.Error(err, "failed to sync secret", "cluster", cluster.Name, "secret", secret.Name)
 			continue

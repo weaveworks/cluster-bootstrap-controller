@@ -142,6 +142,61 @@ func TestSecretSync(t *testing.T) {
 	})
 }
 
+func TestSecretSyncClusterReadiness(t *testing.T) {
+	// No control-plane node conditions - no way of knowing that the state.
+	testCluster, testClusterSecret, testClusterClient := makeTestClusterWithNodeConditions(t, "test")
+
+	testSecret := makeTestSecret(types.NamespacedName{
+		Name:      "test-secret",
+		Namespace: "default",
+	}, map[string][]byte{"value": []byte("test")})
+
+	testSecretSync := makeSecretSync(
+		"test-secretsync",
+		testSecret.GetNamespace(),
+		testSecret.GetName(),
+		"ns-test",
+		map[string]string{"environment": "test"},
+	)
+
+	sc, cl := makeTestClientAndScheme(
+		t, testCluster,
+		testClusterSecret,
+		testSecret,
+		testSecretSync,
+	)
+
+	reconciler := NewSecretSyncReconciler(cl, sc)
+	reconciler.configParser = func(b []byte) (client.Client, error) {
+		clusters := map[string]client.Client{
+			"test": testClusterClient,
+		}
+
+		return clusters[string(b)], nil
+	}
+
+	if _, err := reconciler.Reconcile(context.TODO(), ctrl.Request{NamespacedName: types.NamespacedName{
+		Name:      testSecretSync.GetName(),
+		Namespace: testSecretSync.GetNamespace(),
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	var secret v1.Secret
+	if err := testClusterClient.Get(context.TODO(), client.ObjectKey{Name: "test-secret", Namespace: "ns-test"}, &secret); err != nil {
+		t.Fatal(err)
+	}
+
+	var secretSync capiv1alpha1.SecretSync
+	if err := cl.Get(context.TODO(), client.ObjectKeyFromObject(testSecretSync), &secretSync); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := secretSync.Status.SecretVersions[testCluster.Name]; !ok {
+		t.Fatalf("secretsync status is not updated")
+	}
+}
+
 func makeSecretSync(name, namespace, secretName, targetNamespace string, selector map[string]string) *capiv1alpha1.SecretSync {
 	return &capiv1alpha1.SecretSync{
 		ObjectMeta: metav1.ObjectMeta{
@@ -161,6 +216,17 @@ func makeSecretSync(name, namespace, secretName, targetNamespace string, selecto
 }
 
 func makeReadyTestCluster(t *testing.T, key string) (*clustersv1.GitopsCluster, *v1.Secret, client.Client) {
+	nodeCondition := corev1.NodeCondition{
+		Type:               "Ready",
+		Status:             "True",
+		LastHeartbeatTime:  metav1.Now(),
+		LastTransitionTime: metav1.Now(), Reason: "KubeletReady",
+		Message: "kubelet is posting ready status"}
+
+	return makeTestClusterWithNodeConditions(t, key, nodeCondition)
+}
+
+func makeTestClusterWithNodeConditions(t *testing.T, key string, conds ...corev1.NodeCondition) (*clustersv1.GitopsCluster, *v1.Secret, client.Client) {
 	cluster := makeTestCluster(func(c *clustersv1.GitopsCluster) {
 		c.Name = fmt.Sprintf("cluster-%s", key)
 		c.Namespace = corev1.NamespaceDefault
@@ -170,14 +236,7 @@ func makeReadyTestCluster(t *testing.T, key string) (*clustersv1.GitopsCluster, 
 		c.Status.Conditions = append(c.Status.Conditions, makeReadyCondition())
 	})
 
-	nodeCondition := corev1.NodeCondition{
-		Type:               "Ready",
-		Status:             "True",
-		LastHeartbeatTime:  metav1.Now(),
-		LastTransitionTime: metav1.Now(), Reason: "KubeletReady",
-		Message: "kubelet is posting ready status"}
-
-	readyNode := makeNode(map[string]string{"node-role.kubernetes.io/master": ""}, nodeCondition)
+	readyNode := makeNode(map[string]string{"node-role.kubernetes.io/master": ""}, conds...)
 
 	secret := makeTestSecret(types.NamespacedName{
 		Name:      cluster.GetName() + "-kubeconfig",
