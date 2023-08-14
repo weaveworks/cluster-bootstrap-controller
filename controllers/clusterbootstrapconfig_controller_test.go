@@ -139,6 +139,15 @@ func TestReconcile_when_cluster_ready(t *testing.T) {
 	if l := len(jobs.Items); l != 1 {
 		t.Fatalf("found %d jobs, want %d", l, 1)
 	}
+
+	// reload the Cluster to check the state
+	if err := reconciler.Get(context.TODO(), client.ObjectKeyFromObject(cl), cl); err != nil {
+		t.Fatal(err)
+	}
+
+	if v := cl.ObjectMeta.Annotations[capiv1alpha1.BootstrapConfigsAnnotation]; v != "testing/test-config" {
+		t.Fatalf("got bootstrapped configs %q, want %q", v, "testing/test-config")
+	}
 }
 
 func TestReconcile_when_cluster_ready_bootstrapped_with_same_config(t *testing.T) {
