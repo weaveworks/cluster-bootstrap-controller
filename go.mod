@@ -1,6 +1,6 @@
 module github.com/weaveworks/cluster-bootstrap-controller
 
-go 1.19
+go 1.20
 
 require (
 	github.com/fluxcd/pkg/runtime v0.35.0

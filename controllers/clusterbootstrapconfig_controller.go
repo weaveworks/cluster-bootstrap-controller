@@ -105,6 +105,7 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 				return ctrl.Result{RequeueAfter: clusterBootstrapConfig.ClusterReadinessRequeue()}, nil
 			}
 		}
+
 		if err := bootstrapClusterWithConfig(ctx, logger, r.Client, cluster, &clusterBootstrapConfig); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to bootstrap cluster config: %w", err)
 		}
@@ -116,9 +117,11 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 				},
 			},
 		})
+
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create a patch to update the cluster annotations: %w", err)
 		}
+
 		if err := r.Client.Patch(ctx, cluster, client.RawPatch(types.MergePatchType, mergePatch)); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to annotate cluster %s/%s as bootstrapped: %w", cluster.ObjectMeta.Name, cluster.ObjectMeta.Namespace, err)
 		}
@@ -127,10 +130,22 @@ func (r *ClusterBootstrapConfigReconciler) Reconcile(ctx context.Context, req ct
 }
 
 func appendClusterConfigToBootstrappedList(config capiv1alpha1.ClusterBootstrapConfig, cluster *clustersv1.GitopsCluster) string {
-	current := cluster.GetAnnotations()[capiv1alpha1.BootstrapConfigsAnnotation]
-	set := sets.NewString(strings.Split(current, ",")...)
-	id := fmt.Sprintf("%s/%s", config.GetNamespace(), config.GetName())
-	set.Insert(id)
+	set := sets.NewString()
+
+	current := func(ann string) []string {
+		nonempty := []string{}
+		for _, s := range strings.Split(ann, ",") {
+			if s != "" {
+				nonempty = append(nonempty, s)
+			}
+		}
+
+		return nonempty
+	}(cluster.GetAnnotations()[capiv1alpha1.BootstrapConfigsAnnotation])
+	set.Insert(current...)
+
+	set.Insert(fmt.Sprintf("%s/%s", config.GetNamespace(), config.GetName()))
+
 	return strings.Join(set.List(), ",")
 }
 
