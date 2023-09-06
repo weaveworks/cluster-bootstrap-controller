@@ -7,9 +7,9 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/google/go-cmp v0.5.9
 	github.com/weaveworks/cluster-controller v1.4.2-0.20230314084534-893b54eaffa5
-	k8s.io/api v0.26.3
-	k8s.io/apimachinery v0.26.3
-	k8s.io/client-go v0.26.3
+	k8s.io/api v0.26.8
+	k8s.io/apimachinery v0.26.8
+	k8s.io/client-go v0.26.8
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
 	sigs.k8s.io/controller-runtime v0.14.6
 	sigs.k8s.io/yaml v1.3.0
