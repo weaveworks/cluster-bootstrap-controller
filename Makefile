@@ -3,7 +3,11 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.1
+VERSION ?= $(shell git describe --tags --always)
+# Strip off leading `v`: v0.12.0 -> 0.12.0
+# Seems to be idiomatic for chart versions: https://helm.sh/docs/topics/charts/#the-chart-file
+CHART_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
+CHART_REGISTRY ?= ghcr.io/weaveworks/charts
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -29,15 +33,16 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # weave.works/cluster-bootstrap-controller-bundle:$VERSION and weave.works/cluster-bootstrap-controller-catalog:$VERSION.
-IMAGE_TAG_BASE ?= weaveworks/cluster-bootstrap-controller
+IMAGE_TAG_BASE ?= ghcr.io/weaveworks/cluster-bootstrap-controller
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 IMAGE_TAG := $(shell tools/image-tag)
+
 # Image URL to use all building/pushing image targets
-IMG ?= $(IMAGE_TAG_BASE):$(IMAGE_TAG)
+IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
 CRD_OPTIONS ?= "crd"
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.25
@@ -99,11 +104,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
 docker-build: test ## Build docker image with the manager.
-	docker build \
-	--build-arg=GITHUB_BUILD_TOKEN=$(GITHUB_BUILD_TOKEN) \
-	--build-arg=GITHUB_BUILD_USERNAME=$(GITHUB_BUILD_USERNAME) \
-	-t ${IMG} . \
-	
+	docker build -t ${IMG} .
 
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
@@ -130,7 +131,7 @@ controller-gen: ## Download controller-gen locally if necessary.
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v4.5.7)
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.7)
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
@@ -218,3 +219,25 @@ controllers/testdata/crds/cluster.x-k8s.io_clusters.yaml: controllers/testdata/c
 	curl https://raw.githubusercontent.com/kubernetes-sigs/cluster-api/v1.0.0/config/crd/bases/cluster.x-k8s.io_clusters.yaml -o controllers/testdata/crds/cluster.x-k8s.io_clusters.yaml
 
 download-crds: controllers/testdata/crds/cluster.x-k8s.io_clusters.yaml
+
+HELMIFY = $(shell pwd)/bin/helmify
+.PHONY: helmify
+helmify:
+	$(call go-get-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify@v0.4.3)
+
+.PHONY: helm
+helm: manifests kustomize helmify
+	$(KUSTOMIZE) build config/default | $(HELMIFY) -crd-dir ../weave-gitops-enterprise/charts/cluster-bootstrap-controller
+
+.PHONY: helm-chart
+helm-chart: manifests kustomize helmify
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | $(HELMIFY) -crd-dir charts/cluster-bootstrap-controller
+	echo "fullnameOverride: cluster-bootstrap" >> charts/cluster-bootstrap-controller/values.yaml
+	cp LICENSE charts/cluster-bootstrap-controller/LICENSE
+	helm lint charts/cluster-bootstrap-controller
+	helm package charts/cluster-bootstrap-controller --app-version $(VERSION) --version $(CHART_VERSION) --destination /tmp/helm-repo
+
+.PHONY: publish-helm-chart
+publish-helm-chart: helm-chart
+	helm push /tmp/helm-repo/cluster-bootstrap-controller-${CHART_VERSION}.tgz oci://${CHART_REGISTRY}
